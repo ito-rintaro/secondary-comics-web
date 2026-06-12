@@ -66,34 +66,35 @@
 ```
 src/
 ├─ domain/                         # ── 内側：純粋なビジネス（React非依存）
-│  ├─ collection/
+│  ├─ collection/                  # ✅実装済み
 │  │  ├─ CollectionItem.ts         # エンティティ
-│  │  ├─ Condition.ts              # 値オブジェクト（S/A/B/C）
+│  │  ├─ Condition.ts              # 値オブジェクト（S/A/B/C）+ ラベル
 │  │  ├─ ConditionFlags.ts         # 初版/帯/特装
-│  │  ├─ Money.ts                  # 金額（円）の値オブジェクト
-│  │  ├─ ProfitLoss.ts             # 含み損益の計算（ドメインサービス）
-│  │  └─ CollectionSummary.ts      # サマリー集計
-│  └─ market/
+│  │  ├─ ProfitLoss.ts             # 含み損益・評価額・取得額（ドメインサービス）
+│  │  └─ CollectionSummary.ts      # サマリー集計（summarize）
+│  └─ market/                      # （フェーズ6で実装）
 │     ├─ MarketListing.ts          # 出品/相場
 │     ├─ PriceHistory.ts           # 価格推移（12ヶ月）
 │     └─ Trend.ts                  # 変化率
+│  # 注: 金額の表示整形（¥書式）はビジネスではなく表示の関心事 → presentation/format.ts に置く
 │
 ├─ application/                    # ── ユースケース層
-│  ├─ collection/
+│  ├─ collection/                  # ✅実装済み
 │  │  ├─ ports/
 │  │  │  └─ CollectionRepository.ts   # ★インターフェース（境界）
 │  │  ├─ dto/
 │  │  │  ├─ CollectionItemInput.ts    # フォーム入力DTO
-│  │  │  └─ CollectionQuery.ts        # 検索/フィルタ/ソート条件
+│  │  │  └─ CollectionQuery.ts        # 検索/フィルタ/ソート条件 + 既定値
+│  │  ├─ applyCollectionQuery.ts      # 検索・フィルタ・ソートの純関数
+│  │  ├─ toCollectionItem.ts          # 入力DTO → エンティティ変換（検証前段）
+│  │  ├─ errors.ts                    # ValidationError
 │  │  └─ usecases/
-│  │     ├─ AddCollectionItem.ts
-│  │     ├─ UpdateCollectionItem.ts
+│  │     ├─ ListCollection.ts         # 全件取得（フィルタ/集計は派生で算出）
+│  │     ├─ SaveCollectionItem.ts     # 登録・編集（upsert）
 │  │     ├─ DeleteCollectionItem.ts
-│  │     ├─ ListCollectionItems.ts    # 検索・フィルタ・ソート適用
-│  │     ├─ GetCollectionSummary.ts
 │  │     ├─ ExportCollection.ts        # JSON書出し（FR-A7）
-│  │     └─ ImportCollection.ts        # JSON読込（FR-A7 / C3）
-│  └─ market/
+│  │     └─ ImportCollection.ts        # JSON読込・旧デモ形も許容（FR-A7 / C3）
+│  └─ market/                      # （フェーズ6で実装）
 │     ├─ ports/
 │     │  └─ MarketRepository.ts        # ★インターフェース
 │     └─ usecases/
@@ -101,38 +102,32 @@ src/
 │        └─ GetMarketDetail.ts
 │
 ├─ infrastructure/                 # ── 外側：実装の差し替え点
-│  ├─ collection/
+│  ├─ collection/                  # ✅実装済み
 │  │  ├─ CollectionRepositoryDemo.ts   # 今：デモ実装（localStorage）
-│  │  ├─ CollectionRepositoryImpl.ts   # 将来：実実装（API）。今は空枠
-│  │  ├─ seed/collectionSeed.ts                # デモのSEED相当
-│  │  └─ mappers/collectionItemMapper.ts       # 永続形 ⇄ ドメイン
-│  ├─ market/
-│  │  ├─ MarketRepositoryDemo.ts       # 今：デモ実装（擬似生成 genHistory相当）
-│  │  ├─ MarketRepositoryImpl.ts       # 将来：実実装（API）。今は空枠
-│  │  └─ seed/marketSeed.ts                    # デモのMARKET相当
-│  ├─ image/
-│  │  └─ CanvasImageResizer.ts                 # 画像縮小（600px/JPEG0.8）
-│  └─ api/
-│     └─ httpClient.ts                         # （将来）Impl が使うHTTPクライアント
+│  │  └─ seed/collectionSeed.ts        # デモのSEED相当（8件）
+│  │  # CollectionRepositoryImpl.ts（API実装）はバックエンド着手時に追加
+│  ├─ image/                       # ✅実装済み
+│  │  └─ CanvasImageResizer.ts         # 画像縮小（600px/JPEG0.8）
+│  ├─ market/                      # （フェーズ6で実装）
+│  │  ├─ MarketRepositoryDemo.ts       # 擬似生成（genHistory相当）
+│  │  └─ seed/marketSeed.ts            # デモのMARKET相当
+│  └─ api/                         # （バックエンド着手時）httpClient 等
 │
 ├─ presentation/                   # ── React
-│  ├─ providers/
-│  │  └─ DependencyProvider.tsx     # DIコンテナ（use-case配線）
+│  ├─ format.ts                    # ✅表示整形（¥書式・損益クラス）
 │  ├─ hooks/
-│  │  ├─ useCollection.ts           # use-caseを呼ぶ薄いReact適合層
-│  │  └─ useMarket.ts
+│  │  └─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層
 │  ├─ pages/
-│  │  ├─ CollectionPage.tsx
-│  │  └─ MarketPage.tsx
+│  │  ├─ CollectionPage.tsx         # ✅
+│  │  └─ MarketPlaceholder.tsx      # ✅（マーケットは準備中表示）
 │  ├─ components/
-│  │  ├─ collection/ (SummaryCards, Toolbar, ItemCard, ItemFormModal …)
-│  │  ├─ market/     (MarketCard, Sparkline, MarketDetailModal …)
-│  │  └─ common/     (Modal, Badge, Button …)
-│  └─ App.tsx                       # タブ切替（switchView相当）
+│  │  ├─ collection/                # ✅SummaryCards, Toolbar, ItemCard, ItemFormModal
+│  │  └─ common/                    # ✅Modal（将来 Badge, Button …）
+│  └─ App.tsx                       # ✅タブ切替（switchView相当）
+│  # DIは config/container.ts を直接 import（Provider化は規模拡大時に検討）
 │
 ├─ config/
-│  └─ container.ts                  # 環境に応じてRepository実装を選ぶ
-├─ styles/                          # デモのCSS変数（テーマ）を継承
+│  └─ container.ts                  # ✅Composition Root（use-case配線・実装選択）
 └─ main.tsx
 ```
 
@@ -200,7 +195,7 @@ export const summarize = (items: CollectionItem[]): CollectionSummary => { /* �
 ```
 
 > `含み損益 = (market - cost) * qty`、`評価額 = market * qty`（[03_data_model.md](../docs_for_input/03_data_model.md) 準拠）。
-> **検索・フィルタ・ソート**（デモ `render()` 内）は `ListCollectionItems` ユースケースに移し、`CollectionQuery`（検索語・フィルタ種別・ソート種別）を入力に取る純関数として実装する。
+> **検索・フィルタ・ソート**（デモ `render()` 内）は純関数 `applyCollectionQuery(items, query)`（application層）に移し、`CollectionQuery`（検索語・フィルタ種別・ソート種別）を入力に取る。Presentation では `useMemo` で派生状態として算出する。
 
 ### Market（相場）
 デモの `genHistory(base, trend, vol)` による擬似生成は **Infrastructure（MarketRepositoryDemo）の責務**。Domain は「価格推移」「変化率」「最安/最高」という*概念*だけを持ち、生成方法は知らない。
@@ -223,38 +218,50 @@ export interface MarketListing {
 ```ts
 // application/collection/ports/CollectionRepository.ts
 export interface CollectionRepository {
-  list(query: CollectionQuery): Promise<CollectionItem[]>;
+  list(): Promise<CollectionItem[]>;              // 全件取得（フィルタは適用しない）
   getById(id: string): Promise<CollectionItem | null>;
-  save(item: CollectionItem): Promise<void>;     // add/update 兼用
+  save(item: CollectionItem): Promise<void>;     // add/update 兼用（upsert）
   delete(id: string): Promise<void>;
   replaceAll(items: CollectionItem[]): Promise<void>; // import用
 }
 ```
 
 - **戻り値はすべて `Promise`**。今は同期的なlocalStorageでも、将来の非同期APIでもシグネチャが変わらないようにするため。
+- **`list()` はクエリを取らず全件返す**。検索/フィルタ/ソートは純関数 `applyCollectionQuery`、集計は `summarize` で **Presentation の派生状態**として算出する（毎キーストロークでの再読込を避ける）。将来サーバ側フィルタが必要になったら、その時点で `list(query)` に拡張する。
 - ユースケースはこのインターフェースだけに依存する：
 
 ```ts
-// application/collection/usecases/AddCollectionItem.ts
-export class AddCollectionItem {
-  constructor(private readonly repo: CollectionRepository) {}
+// application/collection/usecases/SaveCollectionItem.ts（登録・編集 upsert）
+export class SaveCollectionItem {
+  private readonly repo: CollectionRepository;
+  constructor(repo: CollectionRepository) { this.repo = repo; } // ※下記の注を参照
   async execute(input: CollectionItemInput): Promise<CollectionItem> {
-    const item = toCollectionItem(input);   // バリデーション＋ドメイン化
-    if (!item.title) throw new ValidationError('タイトルは必須です');
+    if (!input.title.trim()) throw new ValidationError('タイトルを入力してください');
+    const item = toCollectionItem(input);   // 検証後にドメイン化
     await this.repo.save(item);
     return item;
   }
 }
 ```
 
+> **TS設定の注意（erasableSyntaxOnly）**：tsconfig で `erasableSyntaxOnly: true` のため、コンストラクタの **parameter properties（`constructor(private readonly repo: ...)`）は使えない**（実行コードを生成する構文のため）。上記のようにフィールドを明示宣言して代入する。`enum` も不可（union型を使用）。
+
 ### 実装の切り替え（DI）
 ```ts
-// config/container.ts
-const useApi = import.meta.env.VITE_USE_API === 'true';
+// config/container.ts（Composition Root）
+const collectionRepository: CollectionRepository = new CollectionRepositoryDemo();
+//   ↑ バックエンド着手時はここだけを切り替える：
+//   import.meta.env.VITE_USE_API === 'true'
+//     ? new CollectionRepositoryImpl(httpClient)   // 実実装
+//     : new CollectionRepositoryDemo();            // デモ実装
 
-export const collectionRepository: CollectionRepository = useApi
-  ? new CollectionRepositoryImpl(httpClient)         // ← 将来バックエンドができたら（実実装）
-  : new CollectionRepositoryDemo();                  // ← 今はこちら（デモ実装）
+export const collectionUseCases = {
+  list:      new ListCollection(collectionRepository),
+  save:      new SaveCollectionItem(collectionRepository),
+  remove:    new DeleteCollectionItem(collectionRepository),
+  exportAll: new ExportCollection(collectionRepository),
+  importAll: new ImportCollection(collectionRepository),
+};
 ```
 
 → **バックエンド実装時に触るのは、この `container.ts` の分岐と各 `RepositoryImpl`（＋ `infrastructure/api/httpClient`）だけ**。Presentation / Application / Domain は無改修。これが [05_architecture.md](../docs_for_input/05_architecture.md) の「破壊的にしない移行ステップ」をコードで保証する。
@@ -289,11 +296,11 @@ export const collectionRepository: CollectionRepository = useApi
 ## 8. データフロー（例：作品を登録する）
 
 ```
-[ItemFormModal] ──onSubmit(input)──▶ useCollection.add(input)
+[ItemFormModal] ──onSave(input)──▶ useCollection.save(input)
                                           │
                                           ▼
-                            AddCollectionItem.execute(input)      ← Application
-                                          │ toCollectionItem + validate (Domain)
+                            SaveCollectionItem.execute(input)     ← Application
+                                          │ validate + toCollectionItem (Domain化)
                                           ▼
                             CollectionRepository.save(item)        ← port(interface)
                                           │
@@ -342,14 +349,16 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 
 ## 11. 段階導入ステップ（実装着手順）
 
-1. **足場**：Vite + React + TS + ESLint(境界ルール) + Vitest 雛形、テーマCSS移植。
-2. **Domain**：`CollectionItem` / 値オブジェクト / `ProfitLoss` / `summarize` を移植 + 単体テスト。
-3. **Application**：Collectionユースケース + `CollectionRepository` port + DTO。
-4. **Infrastructure**：`CollectionRepositoryDemo` + seed + 画像縮小。
-5. **Presentation（コレクション）**：CollectionPage・サマリー・カード・登録/編集モーダルをデモから移植。
-6. **Market**：Domain/port/`MarketRepositoryDemo` + MarketPage・スパークライン・詳細モーダル。
-7. **Export/Import** と タブ切替（App.tsx）で MVP UI 完成。
-8. （[04_market_data.md] 決定後／バックエンド着手時）`infrastructure/api/` を追加し DI を切替。
+1. ✅ **足場**：Vite + React + TS、テーマCSS移植。（ESLint境界ルール・Vitest は未導入）
+2. ✅ **Domain**：`CollectionItem` / `Condition` / `ConditionFlags` / `ProfitLoss` / `summarize`。（単体テストは未）
+3. ✅ **Application**：Collectionユースケース + `CollectionRepository` port + DTO + `applyCollectionQuery`。
+4. ✅ **Infrastructure**：`CollectionRepositoryDemo` + seed + 画像縮小。
+5. ✅ **Presentation（コレクション）**：CollectionPage・サマリー・カード・登録/編集モーダル + Export/Import + タブ切替。
+6. ⬜ **Market**：Domain/port/`MarketRepositoryDemo` + MarketPage・スパークライン・詳細モーダル。
+7. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
+8. ⬜ （[04_market_data.md] 決定後／バックエンド着手時）`infrastructure/api/` を追加し DI を切替。
+
+> 現在地：ステップ 1〜5 完了（コレクション機能が縦に1枚通り、`npm run build` / `npm run lint` がクリーン）。次はステップ 6（Market）か 7（テスト基盤）。
 
 ---
 
