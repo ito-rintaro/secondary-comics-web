@@ -1,8 +1,4 @@
-import {
-  Authenticator,
-  ThemeProvider,
-  useAuthenticator,
-} from '@aws-amplify/ui-react';
+import { Authenticator, ThemeProvider } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 import type { ReactNode } from 'react';
 import { authTheme, configureAuthLanguage } from './authTheme';
@@ -44,5 +40,3 @@ export function AuthGate({ children }: Props) {
     </ThemeProvider>
   );
 }
-
-export { useAuthenticator };

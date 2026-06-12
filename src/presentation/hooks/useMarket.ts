@@ -3,7 +3,7 @@ import { marketUseCases } from '../../config/container';
 import { applyMarketQuery } from '../../application/market/applyMarketQuery';
 import type { MarketQuery } from '../../application/market/dto/MarketQuery';
 import { DEFAULT_MARKET_QUERY } from '../../application/market/dto/MarketQuery';
-import type { MarketListing } from '../../domain/market/MarketListing';
+import type { MarketRecord } from '../../domain/market/MarketRecord';
 import { summarizeMarket } from '../../domain/market/MarketSummary';
 
 /**
@@ -11,7 +11,7 @@ import { summarizeMarket } from '../../domain/market/MarketSummary';
  * 検索/ソートと集計は all から派生（純関数）で算出する。
  */
 export function useMarket() {
-  const [all, setAll] = useState<MarketListing[]>([]);
+  const [all, setAll] = useState<MarketRecord[]>([]);
   const [query, setQuery] = useState<MarketQuery>(DEFAULT_MARKET_QUERY);
 
   const load = useCallback(async () => {
@@ -24,8 +24,8 @@ export function useMarket() {
     void load();
   }, [load]);
 
-  const listings = useMemo(() => applyMarketQuery(all, query), [all, query]);
+  const records = useMemo(() => applyMarketQuery(all, query), [all, query]);
   const summary = useMemo(() => summarizeMarket(all), [all]);
 
-  return { query, setQuery, listings, summary, total: all.length };
+  return { query, setQuery, records, summary, total: all.length };
 }

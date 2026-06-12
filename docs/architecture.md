@@ -76,7 +76,7 @@ src/
 │  │  ├─ ProfitLoss.ts             # 含み損益・評価額・取得額（ドメインサービス）
 │  │  └─ CollectionSummary.ts      # サマリー集計（summarize）
 │  └─ market/                      # ✅実装済み
-│     ├─ MarketListing.ts          # 出品/相場（エンティティ）
+│     ├─ MarketRecord.ts           # 出品/相場（エンティティ）
 │     ├─ PriceHistory.ts           # 価格推移の集計（現在/最安/最高）
 │     ├─ Trend.ts                  # 変化率（changeRate）
 │     └─ MarketSummary.ts          # マーケット集計（summarizeMarket）
@@ -105,7 +105,7 @@ src/
 │     │  └─ MarketQuery.ts             # 検索/ソート条件 + 既定値
 │     ├─ applyMarketQuery.ts           # 検索・ソートの純関数
 │     └─ usecases/
-│        └─ ListMarketListings.ts      # 全件取得（詳細は読込済みリストから選択）
+│        └─ ListMarketRecords.ts       # 全件取得（詳細は読込済みリストから選択）
 │
 ├─ infrastructure/                 # ── 外側：実装の差し替え点
 │  ├─ collection/                  # ✅実装済み
@@ -216,8 +216,8 @@ export const summarize = (items: CollectionItem[]): CollectionSummary => { /* �
 デモの `genHistory(base, trend, vol)` による擬似生成は **Infrastructure（MarketRepositoryDemo）の責務**。Domain は「価格推移」「変化率」「最安/最高」という*概念*だけを持ち、生成方法は知らない。
 
 ```ts
-// domain/market/MarketListing.ts
-export interface MarketListing {
+// domain/market/MarketRecord.ts
+export interface MarketRecord {
   id: string; title: string; author: string; publisher: string; volume: string;
   seller: string; condition: Condition; flags: ConditionFlags;
   price: number; history: number[]; change: number;  // 12ヶ月・変化率

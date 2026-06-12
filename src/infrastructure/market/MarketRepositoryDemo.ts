@@ -1,4 +1,4 @@
-import type { MarketListing } from '../../domain/market/MarketListing';
+import type { MarketRecord } from '../../domain/market/MarketRecord';
 import { currentPrice } from '../../domain/market/PriceHistory';
 import { changeRate } from '../../domain/market/Trend';
 import type { MarketRepository } from '../../application/market/ports/MarketRepository';
@@ -30,11 +30,11 @@ const genHistory = (
  * 生成は構築時に一度だけ行いキャッシュするため、list の呼び出し間で一貫する。
  */
 export class MarketRepositoryDemo implements MarketRepository {
-  private readonly listings: MarketListing[];
+  private readonly records: MarketRecord[];
 
   constructor() {
     const rng = mulberry32(SEED);
-    this.listings = marketSeed.map((s, i) => {
+    this.records = marketSeed.map((s, i) => {
       const history = genHistory(s.base, s.trend, s.vol, rng);
       return {
         id: `mk${i}`,
@@ -53,7 +53,7 @@ export class MarketRepositoryDemo implements MarketRepository {
     });
   }
 
-  async list(): Promise<MarketListing[]> {
-    return this.listings;
+  async list(): Promise<MarketRecord[]> {
+    return this.records;
   }
 }
