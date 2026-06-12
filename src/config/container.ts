@@ -5,7 +5,7 @@ import { ImportCollection } from '../application/collection/usecases/ImportColle
 import { ListCollection } from '../application/collection/usecases/ListCollection';
 import { SaveCollectionItem } from '../application/collection/usecases/SaveCollectionItem';
 import type { MarketRepository } from '../application/market/ports/MarketRepository';
-import { ListMarketListings } from '../application/market/usecases/ListMarketListings';
+import { ListMarketRecords } from '../application/market/usecases/ListMarketRecords';
 import { CollectionRepositoryDemo } from '../infrastructure/collection/CollectionRepositoryDemo';
 import { MarketRepositoryDemo } from '../infrastructure/market/MarketRepositoryDemo';
 
@@ -33,5 +33,5 @@ const marketRepository: MarketRepository = new MarketRepositoryDemo();
 //   ↑ フェーズ2でここを MarketRepositoryImpl（API/バッチ集計）へ差し替える。
 
 export const marketUseCases = {
-  list: new ListMarketListings(marketRepository),
+  list: new ListMarketRecords(marketRepository),
 };

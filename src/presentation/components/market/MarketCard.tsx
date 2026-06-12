@@ -1,20 +1,20 @@
-import type { MarketListing } from '../../../domain/market/MarketListing';
+import type { MarketRecord } from '../../../domain/market/MarketRecord';
 import { formatPercent, formatYen, trendClass } from '../../format';
 import { Sparkline } from './Sparkline';
 import { avatarHue } from './avatar';
 
 interface MarketCardProps {
-  listing: MarketListing;
+  record: MarketRecord;
   onOpen: (id: string) => void;
 }
 
 /** マーケットの出品/相場カード（デモの market grid item 相当）。 */
-export function MarketCard({ listing, onOpen }: MarketCardProps) {
-  const hue = avatarHue(listing.seller);
+export function MarketCard({ record, onOpen }: MarketCardProps) {
+  const hue = avatarHue(record.seller);
   const meta = [
-    listing.author,
-    listing.volume,
-    `コンディション${listing.condition}`,
+    record.author,
+    record.volume,
+    `コンディション${record.condition}`,
   ]
     .filter(Boolean)
     .join(' ・ ');
@@ -23,36 +23,36 @@ export function MarketCard({ listing, onOpen }: MarketCardProps) {
     <div
       className="item"
       style={{ cursor: 'pointer' }}
-      onClick={() => onOpen(listing.id)}
+      onClick={() => onOpen(record.id)}
     >
       <div className="thumb">
         <span className="ph">📕</span>
         <div className="badges">
-          {listing.flags.firstEd && <span className="badge hot">初版</span>}
-          {listing.flags.obi && <span className="badge">帯</span>}
-          {listing.flags.special && <span className="badge">サイン</span>}
+          {record.flags.firstEd && <span className="badge hot">初版</span>}
+          {record.flags.obi && <span className="badge">帯</span>}
+          {record.flags.special && <span className="badge">サイン</span>}
         </div>
       </div>
       <div className="body">
-        <div className="title">{listing.title}</div>
+        <div className="title">{record.title}</div>
         <div className="meta">{meta}</div>
-        <Sparkline data={listing.history} width={240} height={54} className="spark" />
+        <Sparkline data={record.history} width={240} height={54} className="spark" />
         <div className="nums">
           <div>
             <div className="meta">出品価格</div>
-            <div className="market">{formatYen(listing.price)}</div>
+            <div className="market">{formatYen(record.price)}</div>
           </div>
-          <div className={`trend ${trendClass(listing.change)}`}>
-            {formatPercent(listing.change)}
+          <div className={`trend ${trendClass(record.change)}`}>
+            {formatPercent(record.change)}
             <br />
             <span className="meta">直近12ヶ月</span>
           </div>
         </div>
         <div className="seller">
           <span className="ava" style={{ background: `hsl(${hue} 50% 30%)` }}>
-            {listing.seller[0]}
+            {record.seller[0]}
           </span>
-          {listing.seller}
+          {record.seller}
         </div>
       </div>
     </div>

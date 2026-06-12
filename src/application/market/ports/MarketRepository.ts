@@ -1,4 +1,4 @@
-import type { MarketListing } from '../../../domain/market/MarketListing';
+import type { MarketRecord } from '../../../domain/market/MarketRecord';
 
 /**
  * マーケット相場取得の出力ポート（境界）。
@@ -7,5 +7,5 @@ import type { MarketListing } from '../../../domain/market/MarketListing';
  */
 export interface MarketRepository {
   /** 全件取得（検索/ソートは application の applyMarketQuery で適用）。 */
-  list(): Promise<MarketListing[]>;
+  list(): Promise<MarketRecord[]>;
 }

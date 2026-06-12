@@ -6,7 +6,7 @@ import type { ConditionFlags } from '../shared/ConditionFlags';
  * デモの MARKET（擬似生成）を型付きドメインに引き上げたもの。
  * price/history/change は生成方法（infrastructure）には依存しない事実だけを持つ。
  */
-export interface MarketListing {
+export interface MarketRecord {
   id: string;
   title: string;
   author: string;

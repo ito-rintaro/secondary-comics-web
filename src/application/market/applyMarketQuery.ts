@@ -1,4 +1,4 @@
-import type { MarketListing } from '../../domain/market/MarketListing';
+import type { MarketRecord } from '../../domain/market/MarketRecord';
 import type { MarketQuery } from './dto/MarketQuery';
 
 /**
@@ -6,9 +6,9 @@ import type { MarketQuery } from './dto/MarketQuery';
  * デモ renderMarket() のフィルタ/ソートをそのまま移植。
  */
 export const applyMarketQuery = (
-  items: MarketListing[],
+  items: MarketRecord[],
   query: MarketQuery,
-): MarketListing[] => {
+): MarketRecord[] => {
   const q = query.search.trim().toLowerCase();
 
   const filtered = items.filter((m) => {
