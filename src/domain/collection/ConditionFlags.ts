@@ -1,6 +1,2 @@
-/** 価格に強く効く状態フラグ。デモの firstEd/obi/special を1つにまとめたもの。 */
-export interface ConditionFlags {
-  firstEd: boolean; // 初版
-  obi: boolean; // 帯付き
-  special: boolean; // 特装版 / サイン本
-}
+/** コレクションは共有カーネルの ConditionFlags を再エクスポートして利用する。 */
+export * from '../shared/ConditionFlags';

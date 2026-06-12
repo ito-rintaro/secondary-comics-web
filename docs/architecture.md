@@ -66,16 +66,20 @@
 ```
 src/
 ├─ domain/                         # ── 内側：純粋なビジネス（React非依存）
+│  ├─ shared/                      # ✅共有カーネル（collection/market 双方が使う値オブジェクト）
+│  │  ├─ Condition.ts              # 値オブジェクト（S/A/B/C）+ ラベル
+│  │  └─ ConditionFlags.ts         # 初版/帯/特装
 │  ├─ collection/                  # ✅実装済み
 │  │  ├─ CollectionItem.ts         # エンティティ
-│  │  ├─ Condition.ts              # 値オブジェクト（S/A/B/C）+ ラベル
-│  │  ├─ ConditionFlags.ts         # 初版/帯/特装
+│  │  ├─ Condition.ts              # shared/Condition の再エクスポート（互換用）
+│  │  ├─ ConditionFlags.ts         # shared/ConditionFlags の再エクスポート（互換用）
 │  │  ├─ ProfitLoss.ts             # 含み損益・評価額・取得額（ドメインサービス）
 │  │  └─ CollectionSummary.ts      # サマリー集計（summarize）
-│  └─ market/                      # （フェーズ6で実装）
-│     ├─ MarketListing.ts          # 出品/相場
-│     ├─ PriceHistory.ts           # 価格推移（12ヶ月）
-│     └─ Trend.ts                  # 変化率
+│  └─ market/                      # ✅実装済み
+│     ├─ MarketListing.ts          # 出品/相場（エンティティ）
+│     ├─ PriceHistory.ts           # 価格推移の集計（現在/最安/最高）
+│     ├─ Trend.ts                  # 変化率（changeRate）
+│     └─ MarketSummary.ts          # マーケット集計（summarizeMarket）
 │  # 注: 金額の表示整形（¥書式）はビジネスではなく表示の関心事 → presentation/format.ts に置く
 │
 ├─ application/                    # ── ユースケース層
@@ -94,12 +98,14 @@ src/
 │  │     ├─ DeleteCollectionItem.ts
 │  │     ├─ ExportCollection.ts        # JSON書出し（FR-A7）
 │  │     └─ ImportCollection.ts        # JSON読込・旧デモ形も許容（FR-A7 / C3）
-│  └─ market/                      # （フェーズ6で実装）
+│  └─ market/                      # ✅実装済み
 │     ├─ ports/
-│     │  └─ MarketRepository.ts        # ★インターフェース
+│     │  └─ MarketRepository.ts        # ★インターフェース（list のみ）
+│     ├─ dto/
+│     │  └─ MarketQuery.ts             # 検索/ソート条件 + 既定値
+│     ├─ applyMarketQuery.ts           # 検索・ソートの純関数
 │     └─ usecases/
-│        ├─ ListMarketListings.ts
-│        └─ GetMarketDetail.ts
+│        └─ ListMarketListings.ts      # 全件取得（詳細は読込済みリストから選択）
 │
 ├─ infrastructure/                 # ── 外側：実装の差し替え点
 │  ├─ collection/                  # ✅実装済み
@@ -108,20 +114,24 @@ src/
 │  │  # CollectionRepositoryImpl.ts（API実装）はバックエンド着手時に追加
 │  ├─ image/                       # ✅実装済み
 │  │  └─ CanvasImageResizer.ts         # 画像縮小（600px/JPEG0.8）
-│  ├─ market/                      # （フェーズ6で実装）
-│  │  ├─ MarketRepositoryDemo.ts       # 擬似生成（genHistory相当）
-│  │  └─ seed/marketSeed.ts            # デモのMARKET相当
+│  ├─ market/                      # ✅実装済み
+│  │  ├─ MarketRepositoryDemo.ts       # 擬似生成（genHistory相当）。構築時に一度生成しキャッシュ
+│  │  ├─ prng.ts                       # シード固定の擬似乱数（mulberry32）でチャート安定化
+│  │  └─ seed/marketSeed.ts            # デモのMARKET相当（12件）
 │  └─ api/                         # （バックエンド着手時）httpClient 等
 │
 ├─ presentation/                   # ── React
-│  ├─ format.ts                    # ✅表示整形（¥書式・損益クラス）
+│  ├─ format.ts                    # ✅表示整形（¥書式・損益/変化率クラス・%整形）
 │  ├─ hooks/
-│  │  └─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層
+│  │  ├─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層
+│  │  └─ useMarket.ts               # ✅同上（マーケット）
 │  ├─ pages/
 │  │  ├─ CollectionPage.tsx         # ✅
-│  │  └─ MarketPlaceholder.tsx      # ✅（マーケットは準備中表示）
+│  │  └─ MarketPage.tsx             # ✅
 │  ├─ components/
 │  │  ├─ collection/                # ✅SummaryCards, Toolbar, ItemCard, ItemFormModal
+│  │  ├─ market/                    # ✅MarketSummaryCards, MarketToolbar, MarketCard,
+│  │  │                             #    MarketDetailModal, Sparkline(SVG), avatar
 │  │  └─ common/                    # ✅Modal（将来 Badge, Button …）
 │  └─ App.tsx                       # ✅タブ切替（switchView相当）
 │  # DIは config/container.ts を直接 import（Provider化は規模拡大時に検討）
@@ -289,7 +299,7 @@ export const collectionUseCases = {
 | 画像 | `CanvasImageResizer`（600px/JPEG0.8 → dataURL） | `handleImage` | アップロード→ストレージURL |
 
 - 相場は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) のとおり **MVPは `marketSource='manual'`（手入力）** が基本。`MarketRepositoryDemo` のチャートは「マーケット画面のUI確認用」と割り切り、`marketSource` フィールドで出所を区別できるようにしておく。
-- **乱数の注意**：`genHistory` は `Math.random()` を使う。テスト再現性のため、`MarketRepositoryDemo` には**シード可能な擬似乱数**を渡せる設計にし、テスト時は固定シードを使う。
+- **乱数の扱い（実装済み）**：デモの `genHistory` は `Math.random()` を使っていたが、本実装では**シード固定の擬似乱数（mulberry32, `infrastructure/market/prng.ts`）**に置き換えた。これにより**リロードしてもチャートが安定**し、テストも再現可能。生成は `MarketRepositoryDemo` の構築時に一度だけ行いキャッシュする（`list` 呼び出し間で一貫）。
 
 ---
 
@@ -354,11 +364,11 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 3. ✅ **Application**：Collectionユースケース + `CollectionRepository` port + DTO + `applyCollectionQuery`。
 4. ✅ **Infrastructure**：`CollectionRepositoryDemo` + seed + 画像縮小。
 5. ✅ **Presentation（コレクション）**：CollectionPage・サマリー・カード・登録/編集モーダル + Export/Import + タブ切替。
-6. ⬜ **Market**：Domain/port/`MarketRepositoryDemo` + MarketPage・スパークライン・詳細モーダル。
+6. ✅ **Market**：Domain（+共有カーネル）/port/`MarketRepositoryDemo`（シード固定PRNG）+ MarketPage・スパークライン・詳細モーダル。
 7. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
 8. ⬜ （[04_market_data.md] 決定後／バックエンド着手時）`infrastructure/api/` を追加し DI を切替。
 
-> 現在地：ステップ 1〜5 完了（コレクション機能が縦に1枚通り、`npm run build` / `npm run lint` がクリーン）。次はステップ 6（Market）か 7（テスト基盤）。
+> 現在地：ステップ 1〜6 完了（コレクション + マーケットが縦に1枚通り、`npm run build` / `npm run lint` がクリーン）。次はステップ 7（テスト基盤・ESLint境界ルール）。
 
 ---
 
