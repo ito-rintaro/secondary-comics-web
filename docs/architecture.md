@@ -122,6 +122,9 @@ src/
 │
 ├─ presentation/                   # ── React
 │  ├─ format.ts                    # ✅表示整形（¥書式・損益/変化率クラス・%整形）
+│  ├─ auth/                         # ✅認証UI（Cognito/Amplify）
+│  │  ├─ AuthGate.tsx               # 未ログインならサインイン画面、ログイン済みのみ本体描画
+│  │  └─ authTheme.ts               # Authenticator のダークテーマ化＋日本語化
 │  ├─ hooks/
 │  │  ├─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層
 │  │  └─ useMarket.ts               # ✅同上（マーケット）
@@ -137,7 +140,9 @@ src/
 │  # DIは config/container.ts を直接 import（Provider化は規模拡大時に検討）
 │
 ├─ config/
-│  └─ container.ts                  # ✅Composition Root（use-case配線・実装選択）
+│  ├─ container.ts                  # ✅Composition Root（use-case配線・実装選択）
+│  └─ amplify.ts                    # ✅Amplify(Cognito)初期化。main.tsxで起動時に1回読込
+├─ vite-env.d.ts                    # ✅import.meta.env.VITE_* の型定義
 └─ main.tsx
 ```
 
@@ -365,17 +370,31 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 4. ✅ **Infrastructure**：`CollectionRepositoryDemo` + seed + 画像縮小。
 5. ✅ **Presentation（コレクション）**：CollectionPage・サマリー・カード・登録/編集モーダル + Export/Import + タブ切替。
 6. ✅ **Market**：Domain（+共有カーネル）/port/`MarketRepositoryDemo`（シード固定PRNG）+ MarketPage・スパークライン・詳細モーダル。
-7. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
-8. ⬜ （[04_market_data.md] 決定後／バックエンド着手時）`infrastructure/api/` を追加し DI を切替。
+7. ✅ **認証（Cognito/Amplify）**：`presentation/auth/`（AuthGate）でログイン必須化 + `config/amplify.ts` 初期化。dev/prod 環境分離（Vite mode）と S3 デプロイ（GitHub Actions）整備。
+8. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
+9. ⬜ （[04_market_data.md] 決定後／バックエンド着手時）`infrastructure/api/` を追加し DI を切替。
 
-> 現在地：ステップ 1〜6 完了（コレクション + マーケットが縦に1枚通り、`npm run build` / `npm run lint` がクリーン）。次はステップ 7（テスト基盤・ESLint境界ルール）。
+> 現在地：ステップ 1〜7 完了（コレクション + マーケット + 認証が通り、`npm run build` がクリーン）。次はステップ 8（テスト基盤・ESLint境界ルール）。
 
 ---
 
 ## 12. このフェーズで作らないもの（明示）
 
 [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従い、以下は層だけ用意して実装しない：
-- 認証（⑤⑥画面）：`presentation/pages` に枠だけ。ユーザー紐付けは `userId` を後付けできる形にしておく。
+- ~~認証（⑤⑥画面）~~ → ✅実装済み：Cognito/Amplify の `<Authenticator>` でアプリ全体をログイン必須化（`presentation/auth/AuthGate`）。トークンの保存・自動更新は Amplify が担当。API 呼び出し時のトークン付与・`userId` 紐付けはバックエンド着手時（ステップ9）に対応。
 - 価格アラート・ウォッチリスト（FR-B5/B6）：デモ同様ダミーボタン。
 - 相場の自動収集（[04_market_data.md] 決定待ち）：`infrastructure/market/` を将来バッチ/APIへ差し替え。
+
+---
+
+## 13. 環境分離とデプロイ
+
+| 環境 | env ファイル | ビルド | デプロイ契機 | 配信先 |
+|---|---|---|---|---|
+| **dev** | `.env.dev` | `npm run build:dev`（`--mode dev`） | main へのマージ（自動） | dev の S3 |
+| **prod** | `.env.prod` | `npm run build:prod`（`--mode prod`） | 手動実行（`workflow_dispatch`） | prod の S3 |
+
+- **設定値**：`VITE_COGNITO_*` / `VITE_API_BASE_URL` 等は env ファイル（gitignore、`.env.example` をテンプレに）で管理。Vite の `--mode` で dev/prod を切り替える。
+- **CI（[deploy.yml](../.github/workflows/deploy.yml)）**：CI には env ファイルが無いため、**GitHub Environments(dev/prod) の Variables** から同名の `VITE_*` をビルド時に注入する。S3 バケット名（`AWS_S3_BUCKET`）も Environment ごとの Variable。
+- これらの値はクライアントに埋め込まれる**公開情報**（Secret ではない）ため Variables で管理する。AWS 認証情報のみ Secrets。
 ```

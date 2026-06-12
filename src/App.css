@@ -105,6 +105,35 @@ header h1 small {
   color: #fff;
 }
 
+/* 右端のユーザーメニュー（ユーザー名＋ログアウト） */
+.user-menu {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.user-name {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logout {
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.logout:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ===== layout ===== */
 .wrap {
   max-width: 1200px;

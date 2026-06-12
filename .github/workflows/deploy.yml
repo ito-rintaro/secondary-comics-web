@@ -3,17 +3,27 @@ name: Deploy to S3
 on:
   push:
     branches:
-      - main
-  workflow_dispatch: # 手動実行も可能にする
+      - main # main へのマージ → dev へ自動デプロイ
+  workflow_dispatch: # 手動実行 → prod（または dev）へデプロイ
+    inputs:
+      environment:
+        description: デプロイ先環境
+        type: choice
+        options:
+          - dev
+          - prod
+        default: prod
 
-# 同時に複数のデプロイが走らないようにする
+# push は dev、手動実行は選んだ環境。環境ごとに別グループにして dev/prod の同時実行は許可する。
 concurrency:
-  group: deploy-s3
+  group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # GitHub Environments(dev/prod) の Variables / Secrets を読み込む。
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout
@@ -28,15 +38,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # CI には .env ファイルが無いので、環境の Variables を VITE_* として注入する。
+      # build:dev / build:prod が import.meta.env.MODE を正しく設定する。
       - name: Build
-        run: npm run build
+        run: npm run build:${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
+        env:
+          VITE_COGNITO_USER_POOL_ID: ${{ vars.VITE_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+          VITE_AWS_REGION: ${{ vars.VITE_AWS_REGION }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.VITE_AWS_REGION }}
 
       - name: Sync dist to S3
-        run: aws s3 sync dist/ s3://${{ secrets.AWS_S3_BUCKET }}/ --delete
+        run: aws s3 sync dist/ s3://${{ vars.AWS_S3_BUCKET }}/ --delete
