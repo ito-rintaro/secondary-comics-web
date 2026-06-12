@@ -4,7 +4,10 @@ import { ExportCollection } from '../application/collection/usecases/ExportColle
 import { ImportCollection } from '../application/collection/usecases/ImportCollection';
 import { ListCollection } from '../application/collection/usecases/ListCollection';
 import { SaveCollectionItem } from '../application/collection/usecases/SaveCollectionItem';
+import type { MarketRepository } from '../application/market/ports/MarketRepository';
+import { ListMarketListings } from '../application/market/usecases/ListMarketListings';
 import { CollectionRepositoryDemo } from '../infrastructure/collection/CollectionRepositoryDemo';
+import { MarketRepositoryDemo } from '../infrastructure/market/MarketRepositoryDemo';
 
 /**
  * Composition Root（合成の場所）。
@@ -24,4 +27,11 @@ export const collectionUseCases = {
   remove: new DeleteCollectionItem(collectionRepository),
   exportAll: new ExportCollection(collectionRepository),
   importAll: new ImportCollection(collectionRepository),
+};
+
+const marketRepository: MarketRepository = new MarketRepositoryDemo();
+//   ↑ フェーズ2でここを MarketRepositoryImpl（API/バッチ集計）へ差し替える。
+
+export const marketUseCases = {
+  list: new ListMarketListings(marketRepository),
 };

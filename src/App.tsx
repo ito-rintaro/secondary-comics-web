@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import './App.css';
 import { CollectionPage } from './presentation/pages/CollectionPage';
-import { MarketPlaceholder } from './presentation/pages/MarketPlaceholder';
+import { MarketPage } from './presentation/pages/MarketPage';
 
 type View = 'collection' | 'market';
 
@@ -30,7 +30,7 @@ function App() {
         </nav>
       </header>
 
-      {view === 'collection' ? <CollectionPage /> : <MarketPlaceholder />}
+      {view === 'collection' ? <CollectionPage /> : <MarketPage />}
     </>
   );
 }
