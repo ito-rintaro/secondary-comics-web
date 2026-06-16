@@ -399,6 +399,6 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 | **prod** | `.env.prod` | `npm run build:prod`（`--mode prod`） | 手動実行（`workflow_dispatch`） | prod の S3 |
 
 - **設定値**：`VITE_COGNITO_*` / `VITE_API_BASE_URL` / `VITE_USE_API` 等は env ファイル（gitignore、`.env.example` をテンプレに）で管理。Vite の `--mode` で dev/prod を切り替える。`VITE_USE_API='true'` で実 API、それ以外は Demo（localStorage）。現状 dev=true / prod=false（本番バックエンド構築後に true）。
-- **CI（[deploy.yml](../.github/workflows/deploy.yml)）**：CI には env ファイルが無いため、**GitHub Environments(dev/prod) の Variables** から同名の `VITE_*` をビルド時に注入する。S3 バケット名（`AWS_S3_BUCKET`）も Environment ごとの Variable。
+- **CI（[deploy.yml](../.github/workflows/deploy.yml)）**：CI には env ファイルが無いため、**GitHub Environments(dev/prod) の Variables** から同名の `VITE_*` をビルド時に注入する。S3 バケット名（`AWS_S3_BUCKET`）も Environment ごとの Variable。注入は build ステップの `env:` で**明示的に列挙**しているため、新しい `VITE_*` を増やすときは ① `env:` への1行追加と ② GitHub Environments への Variable 登録の**両方**が必要（未登録だと空文字列になり、例えば `VITE_USE_API` 未設定時は Demo へフォールバックする）。
 - これらの値はクライアントに埋め込まれる**公開情報**（Secret ではない）ため Variables で管理する。AWS 認証情報のみ Secrets。
 ```

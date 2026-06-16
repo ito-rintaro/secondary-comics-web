@@ -47,6 +47,7 @@ jobs:
           VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
           VITE_AWS_REGION: ${{ vars.VITE_AWS_REGION }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_USE_API: ${{ vars.VITE_USE_API }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
