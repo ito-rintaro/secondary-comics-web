@@ -450,6 +450,12 @@ header h1 small {
   color: #3a4150;
   border: 1px solid var(--line);
   flex-shrink: 0;
+  overflow: hidden;
+}
+#mkModal .mk-head .pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 #mkModal .price-now {
   font-size: 30px;

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import type { CollectionItem } from '../../../domain/collection/CollectionItem';
 import { CONDITION_LABELS } from '../../../domain/collection/Condition';
 import { profitLoss } from '../../../domain/collection/ProfitLoss';
 import { formatSignedYen, formatYen, plClass } from '../../format';
+import { resolveImageSrc } from '../../imageSrc';
 
 interface ItemCardProps {
   item: CollectionItem;
@@ -10,6 +12,8 @@ interface ItemCardProps {
 
 /** 作品カード（デモの grid item 相当）。 */
 export function ItemCard({ item, onEdit }: ItemCardProps) {
+  const [imgBroken, setImgBroken] = useState(false);
+  const src = resolveImageSrc(item.imageUrl);
   const pl = profitLoss(item);
   const meta1 = [item.author, item.volume].filter(Boolean).join(' ・ ') || '—';
   const meta2 = [item.publisher, CONDITION_LABELS[item.condition], item.year]
@@ -19,8 +23,13 @@ export function ItemCard({ item, onEdit }: ItemCardProps) {
   return (
     <div className="item">
       <div className="thumb">
-        {item.imageUrl ? (
-          <img src={item.imageUrl} alt="" />
+        {src && !imgBroken ? (
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            onError={() => setImgBroken(true)}
+          />
         ) : (
           <span className="ph">📖</span>
         )}

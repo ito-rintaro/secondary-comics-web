@@ -19,4 +19,5 @@ export interface MarketRecord {
   price: number; // 現在価格（history の末尾）
   change: number; // 期間変化率（(末-初)/初）
   listedAt: number; // 新着ソート用の連番
+  imageUrl: string; // S3 オブジェクトキー（CloudFront images/ 配下）。空は画像なし
 }

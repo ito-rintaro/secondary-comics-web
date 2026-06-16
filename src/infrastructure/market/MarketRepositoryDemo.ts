@@ -49,6 +49,7 @@ export class MarketRepositoryDemo implements MarketRepository {
         price: currentPrice(history),
         change: changeRate(history),
         listedAt: i,
+        imageUrl: '', // デモは画像なし（プレースホルダ表示）
       };
     });
   }
