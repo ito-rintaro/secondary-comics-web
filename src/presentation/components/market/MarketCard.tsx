@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { MarketRecord } from '../../../domain/market/MarketRecord';
 import { formatPercent, formatYen, trendClass } from '../../format';
+import { resolveImageSrc } from '../../imageSrc';
 import { Sparkline } from './Sparkline';
 import { avatarHue } from './avatar';
 
@@ -10,6 +12,8 @@ interface MarketCardProps {
 
 /** マーケットの出品/相場カード（デモの market grid item 相当）。 */
 export function MarketCard({ record, onOpen }: MarketCardProps) {
+  const [imgBroken, setImgBroken] = useState(false);
+  const src = resolveImageSrc(record.imageUrl);
   const hue = avatarHue(record.seller);
   const meta = [
     record.author,
@@ -26,7 +30,16 @@ export function MarketCard({ record, onOpen }: MarketCardProps) {
       onClick={() => onOpen(record.id)}
     >
       <div className="thumb">
-        <span className="ph">📕</span>
+        {src && !imgBroken ? (
+          <img
+            src={src}
+            alt=""
+            loading="lazy"
+            onError={() => setImgBroken(true)}
+          />
+        ) : (
+          <span className="ph">📕</span>
+        )}
         <div className="badges">
           {record.flags.firstEd && <span className="badge hot">初版</span>}
           {record.flags.obi && <span className="badge">帯</span>}

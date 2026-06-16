@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import type { MarketRecord } from '../../../domain/market/MarketRecord';
 import { maxPrice, minPrice } from '../../../domain/market/PriceHistory';
 import { formatPercent, formatYen, trendClass } from '../../format';
+import { resolveImageSrc } from '../../imageSrc';
 import { Modal } from '../common/Modal';
 import { Sparkline } from './Sparkline';
 import { avatarHue } from './avatar';
@@ -12,6 +14,8 @@ interface MarketDetailModalProps {
 
 /** マーケット詳細モーダル（デモの openMarketDetail 相当）。 */
 export function MarketDetailModal({ record, onClose }: MarketDetailModalProps) {
+  const [imgBroken, setImgBroken] = useState(false);
+  const src = resolveImageSrc(record.imageUrl);
   const hue = avatarHue(record.seller);
   const lo = minPrice(record.history);
   const hi = maxPrice(record.history);
@@ -21,7 +25,13 @@ export function MarketDetailModal({ record, onClose }: MarketDetailModalProps) {
     <Modal open onClose={onClose} maxWidth={720}>
       <div id="mkModal">
         <div className="mk-head">
-          <div className="pic">📕</div>
+          <div className="pic">
+            {src && !imgBroken ? (
+              <img src={src} alt="" onError={() => setImgBroken(true)} />
+            ) : (
+              '📕'
+            )}
+          </div>
           <div style={{ flex: 1 }}>
             <h2 style={{ margin: '0 0 8px' }}>{record.title}</h2>
             <div

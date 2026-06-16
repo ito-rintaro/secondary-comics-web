@@ -126,6 +126,7 @@ src/
 │
 ├─ presentation/                   # ── React
 │  ├─ format.ts                    # ✅表示整形（¥書式・損益/変化率クラス・%整形）
+│  ├─ imageSrc.ts                  # ✅画像src解決（S3キー→CloudFront images/前置、空はプレースホルダ）
 │  ├─ auth/                         # ✅認証UI（Cognito/Amplify）
 │  │  ├─ AuthGate.tsx               # 未ログインならサインイン画面、ログイン済みのみ本体描画
 │  │  └─ authTheme.ts               # Authenticator のダークテーマ化＋日本語化
@@ -146,7 +147,7 @@ src/
 ├─ config/
 │  ├─ container.ts                  # ✅Composition Root（use-case配線・実装選択）
 │  └─ amplify.ts                    # ✅Amplify(Cognito)初期化。main.tsxで起動時に1回読込
-├─ vite-env.d.ts                    # ✅import.meta.env.VITE_* の型定義（VITE_USE_API 等）
+├─ vite-env.d.ts                    # ✅import.meta.env.VITE_* の型定義（VITE_USE_API / VITE_IMAGE_BASE_URL 等）
 └─ main.tsx
 ```
 
@@ -195,7 +196,7 @@ export interface CollectionItem {
   store: string;
   location: string;
   memo: string;
-  imageUrl: string;                 // 今:dataURL / 将来:オブジェクトストレージURL
+  imageUrl: string;                 // S3オブジェクトキー（CloudFront images/配下）。空は画像なし
   updatedAt: number;
 }
 ```
@@ -311,7 +312,7 @@ const marketRepository: MarketRepository =
 |---|---|---|---|
 | コレクション | `CollectionRepositoryDemo`（初回は `collectionSeed` を投入） | `STORAGE_KEY`/`SEED`/`load`/`save` | `CollectionRepositoryImpl` |
 | 相場 | `MarketRepositoryDemo`（`genHistory` で12点生成） | `MARKET`/`genHistory` | `MarketRepositoryImpl`（✅`GET /market`。集計ロジックは [04_market_data.md](../docs_for_input/04_market_data.md) 決定後にサーバー側で） |
-| 画像 | `CanvasImageResizer`（600px/JPEG0.8 → dataURL） | `handleImage` | アップロード→ストレージURL |
+| 画像 | `CanvasImageResizer`（600px/JPEG0.8 → dataURL） | `handleImage` | ✅取得は実装済み（APIが返すS3キーを `imageSrc.ts` でCloudFront URLに解決）。アップロードは今後 |
 
 - 相場は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) のとおり **MVPは `marketSource='manual'`（手入力）** が基本。`MarketRepositoryDemo` のチャートは「マーケット画面のUI確認用」と割り切り、`marketSource` フィールドで出所を区別できるようにしておく。
 - **乱数の扱い（実装済み）**：デモの `genHistory` は `Math.random()` を使っていたが、本実装では**シード固定の擬似乱数（mulberry32, `infrastructure/market/prng.ts`）**に置き換えた。これにより**リロードしてもチャートが安定**し、テストも再現可能。生成は `MarketRepositoryDemo` の構築時に一度だけ行いキャッシュする（`list` 呼び出し間で一貫）。
@@ -404,7 +405,7 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 | **dev** | `.env.dev` | `npm run build:dev`（`--mode dev`） | main へのマージ（自動） | dev の S3 |
 | **prod** | `.env.prod` | `npm run build:prod`（`--mode prod`） | 手動実行（`workflow_dispatch`） | prod の S3 |
 
-- **設定値**：`VITE_COGNITO_*` / `VITE_API_BASE_URL` / `VITE_USE_API` 等は env ファイル（gitignore、`.env.example` をテンプレに）で管理。Vite の `--mode` で dev/prod を切り替える。`VITE_USE_API='true'` で実 API、それ以外は Demo（localStorage）。現状 dev=true / prod=false（本番バックエンド構築後に true）。
+- **設定値**：`VITE_COGNITO_*` / `VITE_API_BASE_URL` / `VITE_IMAGE_BASE_URL`（画像配信元の CloudFront ドメイン）/ `VITE_USE_API` 等は env ファイル（gitignore、`.env.example` をテンプレに）で管理。Vite の `--mode` で dev/prod を切り替える。`VITE_USE_API='true'` で実 API、それ以外は Demo（localStorage）。現状 dev=true / prod=false（本番バックエンド構築後に true）。
 - **CI（[deploy.yml](../.github/workflows/deploy.yml)）**：CI には env ファイルが無いため、**GitHub Environments(dev/prod) の Variables** から同名の `VITE_*` をビルド時に注入する。S3 バケット名（`AWS_S3_BUCKET`）も Environment ごとの Variable。注入は build ステップの `env:` で**明示的に列挙**しているため、新しい `VITE_*` を増やすときは ① `env:` への1行追加と ② GitHub Environments への Variable 登録の**両方**が必要（未登録だと空文字列になり、例えば `VITE_USE_API` 未設定時は Demo へフォールバックする）。
 - これらの値はクライアントに埋め込まれる**公開情報**（Secret ではない）ため Variables で管理する。AWS 認証情報のみ Secrets。
 ```
