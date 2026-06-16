@@ -7,7 +7,8 @@ import { MarketCard } from '../components/market/MarketCard';
 import { MarketDetailModal } from '../components/market/MarketDetailModal';
 
 export function MarketPage() {
-  const { query, setQuery, records, summary } = useMarket();
+  const { query, setQuery, records, summary, total, loading, error, reload } =
+    useMarket();
   const [selected, setSelected] = useState<MarketRecord | null>(null);
 
   const openDetail = (id: string) =>
@@ -18,11 +19,26 @@ export function MarketPage() {
       <MarketSummaryCards summary={summary} />
       <MarketToolbar query={query} onChange={setQuery} />
 
-      <div className="grid">
-        {records.map((record) => (
-          <MarketCard key={record.id} record={record} onOpen={openDetail} />
-        ))}
-      </div>
+      {error ? (
+        <div className="empty">
+          {error}
+          <div style={{ marginTop: 12 }}>
+            <button className="ghost" onClick={() => void reload()}>
+              再読み込み
+            </button>
+          </div>
+        </div>
+      ) : loading ? (
+        <div className="empty">読み込み中…</div>
+      ) : total === 0 ? (
+        <div className="empty">マーケットのデータがありません。</div>
+      ) : (
+        <div className="grid">
+          {records.map((record) => (
+            <MarketCard key={record.id} record={record} onOpen={openDetail} />
+          ))}
+        </div>
+      )}
 
       {selected && (
         <MarketDetailModal record={selected} onClose={() => setSelected(null)} />

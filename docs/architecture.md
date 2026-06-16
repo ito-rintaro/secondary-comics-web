@@ -3,8 +3,8 @@
 本書は、デモ（[../docs_for_input/index.html](../docs_for_input/index.html)）を **React.js + TypeScript** で本番実装し直すにあたっての技術設計をまとめる。
 要件は [../docs_for_input/](../docs_for_input/) を参照。MVP（フェーズ1）の範囲は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従う。
 
-> **前提**：バックエンドは段階的に接続中。コレクション取得（`GET /collection`）は実 API に接続済み（`VITE_USE_API=true`）。
-> 書き込み系（登録・編集・削除・インポート）と相場はまだ**ダミーデータ**（localStorage／擬似生成）で動かす。
+> **前提**：バックエンドは段階的に接続中。コレクション取得（`GET /collection`）とマーケット相場取得（`GET /market`）は実 API に接続済み（`VITE_USE_API=true`）。
+> 書き込み系（登録・編集・削除・インポート）はまだ**ダミーデータ**（localStorage）で動かす。
 > 「画面・ロジックを変えずにバックエンドへ差し替える」ことを最初から織り込んだ構造にする。それを担保するのがクリーンアーキテクチャ。
 > API 仕様は [openapi.yaml](openapi.yaml)（OpenAPI 3.0）に定義する。
 
@@ -118,6 +118,7 @@ src/
 │  │  └─ CanvasImageResizer.ts         # 画像縮小（600px/JPEG0.8）
 │  ├─ market/                      # ✅実装済み
 │  │  ├─ MarketRepositoryDemo.ts       # 擬似生成（genHistory相当）。構築時に一度生成しキャッシュ
+│  │  ├─ MarketRepositoryImpl.ts       # ✅API実装。GET /market（全件取得・グローバル）
 │  │  ├─ prng.ts                       # シード固定の擬似乱数（mulberry32）でチャート安定化
 │  │  └─ seed/marketSeed.ts            # デモのMARKET相当（12件）
 │  └─ http/                        # ✅実装済み
@@ -279,22 +280,27 @@ export const collectionUseCases = {
   exportAll: new ExportCollection(collectionRepository),
   importAll: new ImportCollection(collectionRepository),
 };
+
+const marketRepository: MarketRepository =
+  import.meta.env.VITE_USE_API === 'true'
+    ? new MarketRepositoryImpl()   // 実API（GET /market・グローバル）
+    : new MarketRepositoryDemo();  // 擬似生成（genHistory）
 ```
 
 → **バックエンド接続で触るのは、この `container.ts` の分岐と各 `RepositoryImpl`（＋ `infrastructure/http/apiClient`）だけ**。Presentation / Application / Domain は無改修。これが [05_architecture.md](../docs_for_input/05_architecture.md) の「破壊的にしない移行ステップ」をコードで保証する。
 
-> **現状の連携範囲（GETのみ）**：バックエンドは `GET /collection` のみ提供。`CollectionRepositoryImpl` は `list()` を実装し、`getById()` は一覧から導出する。書き込み系（`save`/`delete`/`replaceAll`）は対応 API 提供までは `NotImplementedError` を投げ、メッセージを UI に表示する（保存時は `ItemFormModal` のエラー欄）。`userId` はリクエストに含めず、`apiClient` が付与する Cognito の **ID トークン**の `sub` でサーバー側が本人データに絞り込む。
+> **現状の連携範囲（GETのみ）**：バックエンドは `GET /collection` と `GET /market` を提供。`CollectionRepositoryImpl` は `list()` を実装し、`getById()` は一覧から導出する。コレクションの書き込み系（`save`/`delete`/`replaceAll`）は対応 API 提供までは `NotImplementedError` を投げ、メッセージを UI に表示する（保存時は `ItemFormModal` のエラー欄）。`userId` はリクエストに含めず、`apiClient` が付与する Cognito の **ID トークン**の `sub` でサーバー側が本人データに絞り込む。マーケットは本人データではなく**全ユーザー共通（グローバル）**のため `sub` での絞り込みはしない。
 
 ### 実装クラスの命名規則
 同じ port（interface）に対する実装は、**末尾サフィックスで実/デモを区別**する。技術名（localStorage/API）は名前に入れない。
 
-| 対象 | port（interface） | デモ実装（今） | 実実装（将来） |
+| 対象 | port（interface） | デモ実装 | 実実装（API） |
 |---|---|---|---|
-| コレクション | `CollectionRepository` | `CollectionRepositoryDemo` | `CollectionRepositoryImpl` |
-| 相場 | `MarketRepository` | `MarketRepositoryDemo` | `MarketRepositoryImpl` |
+| コレクション | `CollectionRepository` | `CollectionRepositoryDemo` | `CollectionRepositoryImpl`（✅取得） |
+| 相場 | `MarketRepository` | `MarketRepositoryDemo` | `MarketRepositoryImpl`（✅取得） |
 
-- **`...Demo`** … ダミーデータで動く現フェーズの実装（localStorage / 擬似生成）。
-- **`...Impl`** … バックエンド接続の本実装。今は空枠を置き、`04`決定・API実装後に中身を埋める。
+- **`...Demo`** … ダミーデータで動く実装（localStorage / 擬似生成）。`VITE_USE_API=false` 時に使う。
+- **`...Impl`** … バックエンド接続の本実装。取得（GET）は両者とも実装済み。
 - ファイル名＝クラス名（`CollectionRepositoryDemo.ts`）。`Demo`/`Impl` を見れば実/デモが一目で判別できる。
 
 ---
@@ -304,7 +310,7 @@ export const collectionUseCases = {
 | 対象 | ダミー実装 | デモ由来 | 将来 |
 |---|---|---|---|
 | コレクション | `CollectionRepositoryDemo`（初回は `collectionSeed` を投入） | `STORAGE_KEY`/`SEED`/`load`/`save` | `CollectionRepositoryImpl` |
-| 相場 | `MarketRepositoryDemo`（`genHistory` で12点生成） | `MARKET`/`genHistory` | `MarketRepositoryImpl`（API or バッチ集計。[04_market_data.md](../docs_for_input/04_market_data.md) 決定後） |
+| 相場 | `MarketRepositoryDemo`（`genHistory` で12点生成） | `MARKET`/`genHistory` | `MarketRepositoryImpl`（✅`GET /market`。集計ロジックは [04_market_data.md](../docs_for_input/04_market_data.md) 決定後にサーバー側で） |
 | 画像 | `CanvasImageResizer`（600px/JPEG0.8 → dataURL） | `handleImage` | アップロード→ストレージURL |
 
 - 相場は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) のとおり **MVPは `marketSource='manual'`（手入力）** が基本。`MarketRepositoryDemo` のチャートは「マーケット画面のUI確認用」と割り切り、`marketSource` フィールドで出所を区別できるようにしておく。
@@ -376,9 +382,9 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 6. ✅ **Market**：Domain（+共有カーネル）/port/`MarketRepositoryDemo`（シード固定PRNG）+ MarketPage・スパークライン・詳細モーダル。
 7. ✅ **認証（Cognito/Amplify）**：`presentation/auth/`（AuthGate）でログイン必須化 + `config/amplify.ts` 初期化。dev/prod 環境分離（Vite mode）と S3 デプロイ（GitHub Actions）整備。
 8. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
-9. 🔄 **バックエンド連携**：`infrastructure/http/apiClient` を追加し DI を切替。コレクション取得（`GET /collection`）は接続済み。書き込み系 API・相場 API は提供待ち。
+9. 🔄 **バックエンド連携**：`infrastructure/http/apiClient` を追加し DI を切替。コレクション取得（`GET /collection`）と相場取得（`GET /market`）は接続済み。コレクションの書き込み系 API は提供待ち。
 
-> 現在地：ステップ 1〜7 完了 + ステップ 9 一部（コレクション取得が実 API 接続）。`npm run build` はクリーン。次はステップ 8（テスト基盤・ESLint境界ルール）と、書き込み系 API の提供後の連携。
+> 現在地：ステップ 1〜7 完了 + ステップ 9 一部（コレクション取得・相場取得が実 API 接続）。`npm run build` はクリーン。次はステップ 8（テスト基盤・ESLint境界ルール）と、書き込み系 API の提供後の連携。
 
 ---
 
@@ -387,7 +393,7 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従い、以下は層だけ用意して実装しない：
 - ~~認証（⑤⑥画面）~~ → ✅実装済み：Cognito/Amplify の `<Authenticator>` でアプリ全体をログイン必須化（`presentation/auth/AuthGate`）。トークンの保存・自動更新は Amplify が担当。API 呼び出し時のトークン付与（`apiClient` が ID トークンを付与）・`userId` 紐付け（サーバーが `sub` で判定）はコレクション取得で実装済み。
 - 価格アラート・ウォッチリスト（FR-B5/B6）：デモ同様ダミーボタン。
-- 相場の自動収集（[04_market_data.md] 決定待ち）：`infrastructure/market/` を将来バッチ/APIへ差し替え。
+- 相場の自動収集ロジック（[04_market_data.md] 決定待ち）：取得は `GET /market` に接続済みだが、相場値そのものの集計方法（バッチ等）はサーバー側で決定後に実装。
 
 ---
 
