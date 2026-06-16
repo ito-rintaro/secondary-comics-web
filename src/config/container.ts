@@ -7,19 +7,19 @@ import { SaveCollectionItem } from '../application/collection/usecases/SaveColle
 import type { MarketRepository } from '../application/market/ports/MarketRepository';
 import { ListMarketRecords } from '../application/market/usecases/ListMarketRecords';
 import { CollectionRepositoryDemo } from '../infrastructure/collection/CollectionRepositoryDemo';
+import { CollectionRepositoryImpl } from '../infrastructure/collection/CollectionRepositoryImpl';
 import { MarketRepositoryDemo } from '../infrastructure/market/MarketRepositoryDemo';
 
 /**
  * Composition Root（合成の場所）。
  * ここだけが具体実装を import し、どの実装を使うかを決める唯一の分岐点。
- * バックエンド実装時は VITE_USE_API を見て CollectionRepositoryImpl に差し替える。
- *
- *   const collectionRepository: CollectionRepository =
- *     import.meta.env.VITE_USE_API === 'true'
- *       ? new CollectionRepositoryImpl(httpClient)
- *       : new CollectionRepositoryDemo();
+ * VITE_USE_API === 'true' で実 API（GET /collection）に接続、それ以外は
+ * ローカル開発用の Demo（localStorage）を使う。
  */
-const collectionRepository: CollectionRepository = new CollectionRepositoryDemo();
+const collectionRepository: CollectionRepository =
+  import.meta.env.VITE_USE_API === 'true'
+    ? new CollectionRepositoryImpl()
+    : new CollectionRepositoryDemo();
 
 export const collectionUseCases = {
   list: new ListCollection(collectionRepository),

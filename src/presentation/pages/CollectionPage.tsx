@@ -7,8 +7,20 @@ import { ItemCard } from '../components/collection/ItemCard';
 import { ItemFormModal } from '../components/collection/ItemFormModal';
 
 export function CollectionPage() {
-  const { query, setQuery, items, summary, total, save, remove, exportAll, importAll } =
-    useCollection();
+  const {
+    query,
+    setQuery,
+    items,
+    summary,
+    total,
+    loading,
+    error,
+    reload,
+    save,
+    remove,
+    exportAll,
+    importAll,
+  } = useCollection();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CollectionItem | null>(null);
@@ -80,7 +92,18 @@ export function CollectionPage() {
       <SummaryCards summary={summary} />
       <Toolbar query={query} onChange={setQuery} />
 
-      {total === 0 ? (
+      {error ? (
+        <div className="empty">
+          {error}
+          <div style={{ marginTop: 12 }}>
+            <button className="ghost" onClick={() => void reload()}>
+              再読み込み
+            </button>
+          </div>
+        </div>
+      ) : loading ? (
+        <div className="empty">読み込み中…</div>
+      ) : total === 0 ? (
         <div className="empty">
           まだ作品が登録されていません。「＋ 作品を登録」から追加してください。
         </div>

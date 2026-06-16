@@ -15,9 +15,20 @@ import { summarize } from '../../domain/collection/CollectionSummary';
 export function useCollection() {
   const [all, setAll] = useState<CollectionItem[]>([]);
   const [query, setQuery] = useState<CollectionQuery>(DEFAULT_COLLECTION_QUERY);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    setAll(await collectionUseCases.list.execute());
+    setLoading(true);
+    setError('');
+    try {
+      setAll(await collectionUseCases.list.execute());
+    } catch (e) {
+      // API 失敗（未認証・通信不可など）。空表示にせず原因を画面に出す。
+      setError(e instanceof Error ? e.message : 'コレクションの取得に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -63,6 +74,9 @@ export function useCollection() {
     items,
     summary,
     total: all.length,
+    loading,
+    error,
+    reload: load,
     save,
     remove,
     exportAll,

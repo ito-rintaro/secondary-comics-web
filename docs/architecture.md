@@ -3,8 +3,10 @@
 本書は、デモ（[../docs_for_input/index.html](../docs_for_input/index.html)）を **React.js + TypeScript** で本番実装し直すにあたっての技術設計をまとめる。
 要件は [../docs_for_input/](../docs_for_input/) を参照。MVP（フェーズ1）の範囲は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従う。
 
-> **前提**：バックエンド未実装。当面はすべて**ダミーデータ**（インメモリ／localStorage）で動かす。
-> ただし「あとでバックエンドに差し替える」ことを最初から織り込んだ構造にする。それを担保するのがクリーンアーキテクチャ。
+> **前提**：バックエンドは段階的に接続中。コレクション取得（`GET /collection`）は実 API に接続済み（`VITE_USE_API=true`）。
+> 書き込み系（登録・編集・削除・インポート）と相場はまだ**ダミーデータ**（localStorage／擬似生成）で動かす。
+> 「画面・ロジックを変えずにバックエンドへ差し替える」ことを最初から織り込んだ構造にする。それを担保するのがクリーンアーキテクチャ。
+> API 仕様は [openapi.yaml](openapi.yaml)（OpenAPI 3.0）に定義する。
 
 ---
 
@@ -91,7 +93,7 @@ src/
 │  │  │  └─ CollectionQuery.ts        # 検索/フィルタ/ソート条件 + 既定値
 │  │  ├─ applyCollectionQuery.ts      # 検索・フィルタ・ソートの純関数
 │  │  ├─ toCollectionItem.ts          # 入力DTO → エンティティ変換（検証前段）
-│  │  ├─ errors.ts                    # ValidationError
+│  │  ├─ errors.ts                    # ValidationError / NotImplementedError（API未提供の操作）
 │  │  └─ usecases/
 │  │     ├─ ListCollection.ts         # 全件取得（フィルタ/集計は派生で算出）
 │  │     ├─ SaveCollectionItem.ts     # 登録・編集（upsert）
@@ -109,16 +111,17 @@ src/
 │
 ├─ infrastructure/                 # ── 外側：実装の差し替え点
 │  ├─ collection/                  # ✅実装済み
-│  │  ├─ CollectionRepositoryDemo.ts   # 今：デモ実装（localStorage）
+│  │  ├─ CollectionRepositoryDemo.ts   # デモ実装（localStorage）。VITE_USE_API=false 時
+│  │  ├─ CollectionRepositoryImpl.ts   # ✅API実装。GET /collection（取得）。書込はAPI提供待ち
 │  │  └─ seed/collectionSeed.ts        # デモのSEED相当（8件）
-│  │  # CollectionRepositoryImpl.ts（API実装）はバックエンド着手時に追加
 │  ├─ image/                       # ✅実装済み
 │  │  └─ CanvasImageResizer.ts         # 画像縮小（600px/JPEG0.8）
 │  ├─ market/                      # ✅実装済み
 │  │  ├─ MarketRepositoryDemo.ts       # 擬似生成（genHistory相当）。構築時に一度生成しキャッシュ
 │  │  ├─ prng.ts                       # シード固定の擬似乱数（mulberry32）でチャート安定化
 │  │  └─ seed/marketSeed.ts            # デモのMARKET相当（12件）
-│  └─ api/                         # （バックエンド着手時）httpClient 等
+│  └─ http/                        # ✅実装済み
+│     └─ apiClient.ts                  # 認証付きfetch（CognitoのIDトークン付与）+ ApiError
 │
 ├─ presentation/                   # ── React
 │  ├─ format.ts                    # ✅表示整形（¥書式・損益/変化率クラス・%整形）
@@ -126,7 +129,7 @@ src/
 │  │  ├─ AuthGate.tsx               # 未ログインならサインイン画面、ログイン済みのみ本体描画
 │  │  └─ authTheme.ts               # Authenticator のダークテーマ化＋日本語化
 │  ├─ hooks/
-│  │  ├─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層
+│  │  ├─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層（loading/error/reload付き）
 │  │  └─ useMarket.ts               # ✅同上（マーケット）
 │  ├─ pages/
 │  │  ├─ CollectionPage.tsx         # ✅
@@ -142,7 +145,7 @@ src/
 ├─ config/
 │  ├─ container.ts                  # ✅Composition Root（use-case配線・実装選択）
 │  └─ amplify.ts                    # ✅Amplify(Cognito)初期化。main.tsxで起動時に1回読込
-├─ vite-env.d.ts                    # ✅import.meta.env.VITE_* の型定義
+├─ vite-env.d.ts                    # ✅import.meta.env.VITE_* の型定義（VITE_USE_API 等）
 └─ main.tsx
 ```
 
@@ -263,12 +266,11 @@ export class SaveCollectionItem {
 
 ### 実装の切り替え（DI）
 ```ts
-// config/container.ts（Composition Root）
-const collectionRepository: CollectionRepository = new CollectionRepositoryDemo();
-//   ↑ バックエンド着手時はここだけを切り替える：
-//   import.meta.env.VITE_USE_API === 'true'
-//     ? new CollectionRepositoryImpl(httpClient)   // 実実装
-//     : new CollectionRepositoryDemo();            // デモ実装
+// config/container.ts（Composition Root）— 実装済みの分岐
+const collectionRepository: CollectionRepository =
+  import.meta.env.VITE_USE_API === 'true'
+    ? new CollectionRepositoryImpl()   // 実API（GET /collection）
+    : new CollectionRepositoryDemo();  // デモ（localStorage）
 
 export const collectionUseCases = {
   list:      new ListCollection(collectionRepository),
@@ -279,7 +281,9 @@ export const collectionUseCases = {
 };
 ```
 
-→ **バックエンド実装時に触るのは、この `container.ts` の分岐と各 `RepositoryImpl`（＋ `infrastructure/api/httpClient`）だけ**。Presentation / Application / Domain は無改修。これが [05_architecture.md](../docs_for_input/05_architecture.md) の「破壊的にしない移行ステップ」をコードで保証する。
+→ **バックエンド接続で触るのは、この `container.ts` の分岐と各 `RepositoryImpl`（＋ `infrastructure/http/apiClient`）だけ**。Presentation / Application / Domain は無改修。これが [05_architecture.md](../docs_for_input/05_architecture.md) の「破壊的にしない移行ステップ」をコードで保証する。
+
+> **現状の連携範囲（GETのみ）**：バックエンドは `GET /collection` のみ提供。`CollectionRepositoryImpl` は `list()` を実装し、`getById()` は一覧から導出する。書き込み系（`save`/`delete`/`replaceAll`）は対応 API 提供までは `NotImplementedError` を投げ、メッセージを UI に表示する（保存時は `ItemFormModal` のエラー欄）。`userId` はリクエストに含めず、`apiClient` が付与する Cognito の **ID トークン**の `sub` でサーバー側が本人データに絞り込む。
 
 ### 実装クラスの命名規則
 同じ port（interface）に対する実装は、**末尾サフィックスで実/デモを区別**する。技術名（localStorage/API）は名前に入れない。
@@ -372,16 +376,16 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 6. ✅ **Market**：Domain（+共有カーネル）/port/`MarketRepositoryDemo`（シード固定PRNG）+ MarketPage・スパークライン・詳細モーダル。
 7. ✅ **認証（Cognito/Amplify）**：`presentation/auth/`（AuthGate）でログイン必須化 + `config/amplify.ts` 初期化。dev/prod 環境分離（Vite mode）と S3 デプロイ（GitHub Actions）整備。
 8. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
-9. ⬜ （[04_market_data.md] 決定後／バックエンド着手時）`infrastructure/api/` を追加し DI を切替。
+9. 🔄 **バックエンド連携**：`infrastructure/http/apiClient` を追加し DI を切替。コレクション取得（`GET /collection`）は接続済み。書き込み系 API・相場 API は提供待ち。
 
-> 現在地：ステップ 1〜7 完了（コレクション + マーケット + 認証が通り、`npm run build` がクリーン）。次はステップ 8（テスト基盤・ESLint境界ルール）。
+> 現在地：ステップ 1〜7 完了 + ステップ 9 一部（コレクション取得が実 API 接続）。`npm run build` はクリーン。次はステップ 8（テスト基盤・ESLint境界ルール）と、書き込み系 API の提供後の連携。
 
 ---
 
 ## 12. このフェーズで作らないもの（明示）
 
 [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従い、以下は層だけ用意して実装しない：
-- ~~認証（⑤⑥画面）~~ → ✅実装済み：Cognito/Amplify の `<Authenticator>` でアプリ全体をログイン必須化（`presentation/auth/AuthGate`）。トークンの保存・自動更新は Amplify が担当。API 呼び出し時のトークン付与・`userId` 紐付けはバックエンド着手時（ステップ9）に対応。
+- ~~認証（⑤⑥画面）~~ → ✅実装済み：Cognito/Amplify の `<Authenticator>` でアプリ全体をログイン必須化（`presentation/auth/AuthGate`）。トークンの保存・自動更新は Amplify が担当。API 呼び出し時のトークン付与（`apiClient` が ID トークンを付与）・`userId` 紐付け（サーバーが `sub` で判定）はコレクション取得で実装済み。
 - 価格アラート・ウォッチリスト（FR-B5/B6）：デモ同様ダミーボタン。
 - 相場の自動収集（[04_market_data.md] 決定待ち）：`infrastructure/market/` を将来バッチ/APIへ差し替え。
 
@@ -394,7 +398,7 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 | **dev** | `.env.dev` | `npm run build:dev`（`--mode dev`） | main へのマージ（自動） | dev の S3 |
 | **prod** | `.env.prod` | `npm run build:prod`（`--mode prod`） | 手動実行（`workflow_dispatch`） | prod の S3 |
 
-- **設定値**：`VITE_COGNITO_*` / `VITE_API_BASE_URL` 等は env ファイル（gitignore、`.env.example` をテンプレに）で管理。Vite の `--mode` で dev/prod を切り替える。
+- **設定値**：`VITE_COGNITO_*` / `VITE_API_BASE_URL` / `VITE_USE_API` 等は env ファイル（gitignore、`.env.example` をテンプレに）で管理。Vite の `--mode` で dev/prod を切り替える。`VITE_USE_API='true'` で実 API、それ以外は Demo（localStorage）。現状 dev=true / prod=false（本番バックエンド構築後に true）。
 - **CI（[deploy.yml](../.github/workflows/deploy.yml)）**：CI には env ファイルが無いため、**GitHub Environments(dev/prod) の Variables** から同名の `VITE_*` をビルド時に注入する。S3 バケット名（`AWS_S3_BUCKET`）も Environment ごとの Variable。
 - これらの値はクライアントに埋め込まれる**公開情報**（Secret ではない）ため Variables で管理する。AWS 認証情報のみ Secrets。
 ```
