@@ -9,6 +9,7 @@ import { ListMarketRecords } from '../application/market/usecases/ListMarketReco
 import { CollectionRepositoryDemo } from '../infrastructure/collection/CollectionRepositoryDemo';
 import { CollectionRepositoryImpl } from '../infrastructure/collection/CollectionRepositoryImpl';
 import { MarketRepositoryDemo } from '../infrastructure/market/MarketRepositoryDemo';
+import { MarketRepositoryImpl } from '../infrastructure/market/MarketRepositoryImpl';
 
 /**
  * Composition Root（合成の場所）。
@@ -29,8 +30,10 @@ export const collectionUseCases = {
   importAll: new ImportCollection(collectionRepository),
 };
 
-const marketRepository: MarketRepository = new MarketRepositoryDemo();
-//   ↑ フェーズ2でここを MarketRepositoryImpl（API/バッチ集計）へ差し替える。
+const marketRepository: MarketRepository =
+  import.meta.env.VITE_USE_API === 'true'
+    ? new MarketRepositoryImpl()
+    : new MarketRepositoryDemo();
 
 export const marketUseCases = {
   list: new ListMarketRecords(marketRepository),

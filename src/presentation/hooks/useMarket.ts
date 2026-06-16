@@ -13,9 +13,20 @@ import { summarizeMarket } from '../../domain/market/MarketSummary';
 export function useMarket() {
   const [all, setAll] = useState<MarketRecord[]>([]);
   const [query, setQuery] = useState<MarketQuery>(DEFAULT_MARKET_QUERY);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    setAll(await marketUseCases.list.execute());
+    setLoading(true);
+    setError('');
+    try {
+      setAll(await marketUseCases.list.execute());
+    } catch (e) {
+      // API 失敗（未認証・通信不可など）。空表示にせず原因を画面に出す。
+      setError(e instanceof Error ? e.message : 'マーケットの取得に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -27,5 +38,14 @@ export function useMarket() {
   const records = useMemo(() => applyMarketQuery(all, query), [all, query]);
   const summary = useMemo(() => summarizeMarket(all), [all]);
 
-  return { query, setQuery, records, summary, total: all.length };
+  return {
+    query,
+    setQuery,
+    records,
+    summary,
+    total: all.length,
+    loading,
+    error,
+    reload: load,
+  };
 }
