@@ -5,6 +5,7 @@ import { SummaryCards } from '../components/collection/SummaryCards';
 import { Toolbar } from '../components/collection/Toolbar';
 import { ItemCard } from '../components/collection/ItemCard';
 import { ItemFormModal } from '../components/collection/ItemFormModal';
+import { CreateItemModal } from '../components/collection/CreateItemModal';
 
 export function CollectionPage() {
   const {
@@ -16,24 +17,19 @@ export function CollectionPage() {
     loading,
     error,
     reload,
+    create,
     save,
     remove,
     exportAll,
     importAll,
   } = useCollection();
 
-  const [modalOpen, setModalOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<CollectionItem | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const openAdd = () => {
-    setEditing(null);
-    setModalOpen(true);
-  };
-
   const openEdit = (id: string) => {
     setEditing(items.find((x) => x.id === id) ?? null);
-    setModalOpen(true);
   };
 
   const handleExport = async () => {
@@ -84,7 +80,7 @@ export function CollectionPage() {
             e.target.value = '';
           }}
         />
-        <button className="primary" onClick={openAdd}>
+        <button className="primary" onClick={() => setCreateOpen(true)}>
           ＋ 作品を登録
         </button>
       </div>
@@ -115,11 +111,18 @@ export function CollectionPage() {
         </div>
       )}
 
-      {modalOpen && (
+      {createOpen && (
+        <CreateItemModal
+          onClose={() => setCreateOpen(false)}
+          onCreate={create}
+        />
+      )}
+
+      {editing && (
         <ItemFormModal
-          key={editing?.id ?? 'new'}
+          key={editing.id}
           editing={editing}
-          onClose={() => setModalOpen(false)}
+          onClose={() => setEditing(null)}
           onSave={save}
           onDelete={remove}
         />

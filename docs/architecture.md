@@ -3,8 +3,9 @@
 本書は、デモ（[../docs_for_input/index.html](../docs_for_input/index.html)）を **React.js + TypeScript** で本番実装し直すにあたっての技術設計をまとめる。
 要件は [../docs_for_input/](../docs_for_input/) を参照。MVP（フェーズ1）の範囲は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従う。
 
-> **前提**：バックエンドは段階的に接続中。コレクション取得（`GET /collection`）とマーケット相場取得（`GET /market`）は実 API に接続済み（`VITE_USE_API=true`）。
-> 書き込み系（登録・編集・削除・インポート）はまだ**ダミーデータ**（localStorage）で動かす。
+> **前提**：バックエンドは段階的に接続中。コレクション取得（`GET /collection`）・**コレクション新規登録（`POST /collection`）**・カタログ取得（`GET /catalogs`）・マーケット相場取得（`GET /market`）は実 API に接続済み（`VITE_USE_API=true`）。
+> 残りの書き込み系（編集・削除・インポート）はまだ**ダミーデータ**（localStorage）で動かす。
+> 新規登録は書誌マスタ（Catalog）を `catalogId` で参照する設計のため、カタログ基盤を持つ**実 API モード専用**（Demo は `NotImplementedError`）。
 > 「画面・ロジックを変えずにバックエンドへ差し替える」ことを最初から織り込んだ構造にする。それを担保するのがクリーンアーキテクチャ。
 > API 仕様は [openapi.yaml](openapi.yaml)（OpenAPI 3.0）に定義する。
 
@@ -77,6 +78,8 @@ src/
 │  │  ├─ ConditionFlags.ts         # shared/ConditionFlags の再エクスポート（互換用）
 │  │  ├─ ProfitLoss.ts             # 含み損益・評価額・取得額（ドメインサービス）
 │  │  └─ CollectionSummary.ts      # サマリー集計（summarize）
+│  ├─ catalog/                     # ✅実装済み（書誌マスタ）
+│  │  └─ Catalog.ts                # エンティティ（CollectionItem が catalogId で参照する hub）
 │  └─ market/                      # ✅実装済み
 │     ├─ MarketRecord.ts           # 出品/相場（エンティティ）
 │     ├─ PriceHistory.ts           # 価格推移の集計（現在/最安/最高）
@@ -89,17 +92,24 @@ src/
 │  │  ├─ ports/
 │  │  │  └─ CollectionRepository.ts   # ★インターフェース（境界）
 │  │  ├─ dto/
-│  │  │  ├─ CollectionItemInput.ts    # フォーム入力DTO
+│  │  │  ├─ CollectionItemInput.ts    # フォーム入力DTO（編集用・全書誌を平坦化）
+│  │  │  ├─ NewCollectionInput.ts     # ✅新規登録DTO（catalogId+condition必須・POST /collection）
 │  │  │  └─ CollectionQuery.ts        # 検索/フィルタ/ソート条件 + 既定値
 │  │  ├─ applyCollectionQuery.ts      # 検索・フィルタ・ソートの純関数
 │  │  ├─ toCollectionItem.ts          # 入力DTO → エンティティ変換（検証前段）
 │  │  ├─ errors.ts                    # ValidationError / NotImplementedError（API未提供の操作）
 │  │  └─ usecases/
 │  │     ├─ ListCollection.ts         # 全件取得（フィルタ/集計は派生で算出）
-│  │     ├─ SaveCollectionItem.ts     # 登録・編集（upsert）
+│  │     ├─ CreateCollectionItem.ts   # ✅新規登録（catalogId参照・POST /collection）
+│  │     ├─ SaveCollectionItem.ts     # 編集（upsert）
 │  │     ├─ DeleteCollectionItem.ts
 │  │     ├─ ExportCollection.ts        # JSON書出し（FR-A7）
 │  │     └─ ImportCollection.ts        # JSON読込・旧デモ形も許容（FR-A7 / C3）
+│  ├─ catalog/                     # ✅実装済み（書誌マスタ取得）
+│  │  ├─ ports/
+│  │  │  └─ CatalogRepository.ts       # ★インターフェース（list のみ）
+│  │  └─ usecases/
+│  │     └─ ListCatalogs.ts            # 全件取得（新規登録モーダルの catalogId 選択用）
 │  └─ market/                      # ✅実装済み
 │     ├─ ports/
 │     │  └─ MarketRepository.ts        # ★インターフェース（list のみ）
@@ -112,8 +122,11 @@ src/
 ├─ infrastructure/                 # ── 外側：実装の差し替え点
 │  ├─ collection/                  # ✅実装済み
 │  │  ├─ CollectionRepositoryDemo.ts   # デモ実装（localStorage）。VITE_USE_API=false 時
-│  │  ├─ CollectionRepositoryImpl.ts   # ✅API実装。GET /collection（取得）。書込はAPI提供待ち
+│  │  ├─ CollectionRepositoryImpl.ts   # ✅API実装。GET /collection（取得）+ POST /collection（登録）。編集/削除はAPI提供待ち
 │  │  └─ seed/collectionSeed.ts        # デモのSEED相当（8件）
+│  ├─ catalog/                     # ✅実装済み
+│  │  ├─ CatalogRepositoryImpl.ts      # ✅API実装。GET /catalogs（書誌マスタ・グローバル）
+│  │  └─ CatalogRepositoryDemo.ts      # デモは未対応（NotImplementedError・新規登録はAPIモード専用）
 │  ├─ image/                       # ✅実装済み
 │  │  └─ CanvasImageResizer.ts         # 画像縮小（600px/JPEG0.8）
 │  ├─ market/                      # ✅実装済み
@@ -122,7 +135,7 @@ src/
 │  │  ├─ prng.ts                       # シード固定の擬似乱数（mulberry32）でチャート安定化
 │  │  └─ seed/marketSeed.ts            # デモのMARKET相当（12件）
 │  └─ http/                        # ✅実装済み
-│     └─ apiClient.ts                  # 認証付きfetch（CognitoのIDトークン付与）+ ApiError
+│     └─ apiClient.ts                  # 認証付きfetch（apiGet/apiPost・CognitoのIDトークン付与）+ ApiError
 │
 ├─ presentation/                   # ── React
 │  ├─ format.ts                    # ✅表示整形（¥書式・損益/変化率クラス・%整形）
@@ -131,13 +144,14 @@ src/
 │  │  ├─ AuthGate.tsx               # 未ログインならサインイン画面、ログイン済みのみ本体描画
 │  │  └─ authTheme.ts               # Authenticator のダークテーマ化＋日本語化
 │  ├─ hooks/
-│  │  ├─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層（loading/error/reload付き）
+│  │  ├─ useCollection.ts           # ✅container経由でuse-caseを呼ぶ薄い適合層（loading/error/reload/create付き）
+│  │  ├─ useCatalogs.ts             # ✅新規登録モーダル用のカタログ読込（GET /catalogs）
 │  │  └─ useMarket.ts               # ✅同上（マーケット）
 │  ├─ pages/
 │  │  ├─ CollectionPage.tsx         # ✅
 │  │  └─ MarketPage.tsx             # ✅
 │  ├─ components/
-│  │  ├─ collection/                # ✅SummaryCards, Toolbar, ItemCard, ItemFormModal
+│  │  ├─ collection/                # ✅SummaryCards, Toolbar, ItemCard, ItemFormModal(編集), CreateItemModal(新規登録)
 │  │  ├─ market/                    # ✅MarketSummaryCards, MarketToolbar, MarketCard,
 │  │  │                             #    MarketDetailModal, Sparkline(SVG), avatar
 │  │  └─ common/                    # ✅Modal（将来 Badge, Button …）
@@ -240,7 +254,8 @@ export interface MarketRecord {
 export interface CollectionRepository {
   list(): Promise<CollectionItem[]>;              // 全件取得（フィルタは適用しない）
   getById(id: string): Promise<CollectionItem | null>;
-  save(item: CollectionItem): Promise<void>;     // add/update 兼用（upsert）
+  create(input: NewCollectionInput): Promise<CollectionItem>; // 新規登録（catalogId参照・POST /collection）
+  save(item: CollectionItem): Promise<void>;     // 編集（upsert）
   delete(id: string): Promise<void>;
   replaceAll(items: CollectionItem[]): Promise<void>; // import用
 }
@@ -248,6 +263,7 @@ export interface CollectionRepository {
 
 - **戻り値はすべて `Promise`**。今は同期的なlocalStorageでも、将来の非同期APIでもシグネチャが変わらないようにするため。
 - **`list()` はクエリを取らず全件返す**。検索/フィルタ/ソートは純関数 `applyCollectionQuery`、集計は `summarize` で **Presentation の派生状態**として算出する（毎キーストロークでの再読込を避ける）。将来サーバ側フィルタが必要になったら、その時点で `list(query)` に拡張する。
+- **`create()` は書誌マスタ参照型**。書誌（title/author/…/imageUrl）は `catalogId` で既存 Catalog を参照し、本文には所有インスタンス固有の情報（condition/qty/cost…）だけを渡す（`id`/`updatedAt` はサーバ採番、`imageUrl` はカタログ由来）。サーバは Catalog を合成した enriched な `CollectionItem` を 201 で返す。`catalogId` 取得のため `CatalogRepository.list()`（`GET /catalogs`）が必要。これに対し `save()`（編集）は全書誌を平坦に持つ既存の upsert で、入力 DTO の系統が異なる。
 - ユースケースはこのインターフェースだけに依存する：
 
 ```ts
@@ -276,10 +292,20 @@ const collectionRepository: CollectionRepository =
 
 export const collectionUseCases = {
   list:      new ListCollection(collectionRepository),
+  create:    new CreateCollectionItem(collectionRepository), // 新規登録（POST /collection）
   save:      new SaveCollectionItem(collectionRepository),
   remove:    new DeleteCollectionItem(collectionRepository),
   exportAll: new ExportCollection(collectionRepository),
   importAll: new ImportCollection(collectionRepository),
+};
+
+const catalogRepository: CatalogRepository =
+  import.meta.env.VITE_USE_API === 'true'
+    ? new CatalogRepositoryImpl()  // 実API（GET /catalogs・グローバル）
+    : new CatalogRepositoryDemo(); // デモ未対応（NotImplementedError）
+
+export const catalogUseCases = {
+  list: new ListCatalogs(catalogRepository),
 };
 
 const marketRepository: MarketRepository =
@@ -290,14 +316,15 @@ const marketRepository: MarketRepository =
 
 → **バックエンド接続で触るのは、この `container.ts` の分岐と各 `RepositoryImpl`（＋ `infrastructure/http/apiClient`）だけ**。Presentation / Application / Domain は無改修。これが [05_architecture.md](../docs_for_input/05_architecture.md) の「破壊的にしない移行ステップ」をコードで保証する。
 
-> **現状の連携範囲（GETのみ）**：バックエンドは `GET /collection` と `GET /market` を提供。`CollectionRepositoryImpl` は `list()` を実装し、`getById()` は一覧から導出する。コレクションの書き込み系（`save`/`delete`/`replaceAll`）は対応 API 提供までは `NotImplementedError` を投げ、メッセージを UI に表示する（保存時は `ItemFormModal` のエラー欄）。`userId` はリクエストに含めず、`apiClient` が付与する Cognito の **ID トークン**の `sub` でサーバー側が本人データに絞り込む。マーケットは本人データではなく**全ユーザー共通（グローバル）**のため `sub` での絞り込みはしない。
+> **現状の連携範囲**：バックエンドは `GET /collection`・`POST /collection`・`GET /catalogs`・`GET /market` を提供。`CollectionRepositoryImpl` は `list()` と `create()`（`apiPost`）を実装し、`getById()` は一覧から導出する。残りの書き込み系（`save`(編集)/`delete`/`replaceAll`）は対応 API 提供までは `NotImplementedError` を投げ、メッセージを UI に表示する。新規登録は `CatalogRepositoryImpl.list()`（`GET /catalogs`）でカタログを取得し、`CreateItemModal` でカタログを検索・選択して `catalogId` を決める。カタログ基盤は実 API 側にしか無いため、Demo の `create()`／`CatalogRepositoryDemo.list()` は `NotImplementedError`（新規登録は実 API モード専用）。`userId` はリクエストに含めず、`apiClient` が付与する Cognito の **ID トークン**の `sub` でサーバー側が本人データに絞り込む。マーケットとカタログは本人データではなく**全ユーザー共通（グローバル）**のため `sub` での絞り込みはしない。
 
 ### 実装クラスの命名規則
 同じ port（interface）に対する実装は、**末尾サフィックスで実/デモを区別**する。技術名（localStorage/API）は名前に入れない。
 
 | 対象 | port（interface） | デモ実装 | 実実装（API） |
 |---|---|---|---|
-| コレクション | `CollectionRepository` | `CollectionRepositoryDemo` | `CollectionRepositoryImpl`（✅取得） |
+| コレクション | `CollectionRepository` | `CollectionRepositoryDemo` | `CollectionRepositoryImpl`（✅取得・新規登録） |
+| カタログ | `CatalogRepository` | `CatalogRepositoryDemo`（未対応） | `CatalogRepositoryImpl`（✅取得） |
 | 相場 | `MarketRepository` | `MarketRepositoryDemo` | `MarketRepositoryImpl`（✅取得） |
 
 - **`...Demo`** … ダミーデータで動く実装（localStorage / 擬似生成）。`VITE_USE_API=false` 時に使う。
@@ -319,23 +346,26 @@ const marketRepository: MarketRepository =
 
 ---
 
-## 8. データフロー（例：作品を登録する）
+## 8. データフロー（例：作品を新規登録する）
+
+書誌は `GET /catalogs` から取得した Catalog を `CreateItemModal` で検索・選択し、`catalogId` で参照する。
 
 ```
-[ItemFormModal] ──onSave(input)──▶ useCollection.save(input)
-                                          │
-                                          ▼
-                            SaveCollectionItem.execute(input)     ← Application
-                                          │ validate + toCollectionItem (Domain化)
-                                          ▼
-                            CollectionRepository.save(item)        ← port(interface)
-                                          │
-                       ┌──────────────────┴───────────────────┐
-              （今）CollectionRepositoryDemo          （将来）CollectionRepositoryImpl
-                       localStorage.setItem                    POST /collection-items
+[CreateItemModal] ──onCreate(input)──▶ useCollection.create(input)   ← NewCollectionInput
+   │  （カタログ選択は                          │
+   │   useCatalogs→ListCatalogs→               ▼
+   │   GET /catalogs）           CreateCollectionItem.execute(input)  ← Application
+   │                                            │ validate（catalogId / condition）
+   │                                            ▼
+   │                            CollectionRepository.create(input)     ← port(interface)
+   │                                            │
+   │                       ┌────────────────────┴────────────────────┐
+   │              （Demo）NotImplementedError       （API）CollectionRepositoryImpl
+   │                                                       POST /collection（201: enriched CollectionItem）
+   └─ 成功後 useCollection.load() で一覧を再取得
 ```
 
-UI（React）は `useCollection` フック経由でユースケースを呼ぶだけ。**含み損益やバリデーションのロジックはコンポーネントに一切書かない**。
+UI（React）は `useCollection` / `useCatalogs` フック経由でユースケースを呼ぶだけ。**書誌の合成・採番はサーバーが行い、バリデーションのロジックはコンポーネントに直書きしない**。編集（`SaveCollectionItem` の upsert）は別経路で、対応 API 提供までは Demo（localStorage）で動く。
 
 ---
 
@@ -383,9 +413,9 @@ UI（React）は `useCollection` フック経由でユースケースを呼ぶ�
 6. ✅ **Market**：Domain（+共有カーネル）/port/`MarketRepositoryDemo`（シード固定PRNG）+ MarketPage・スパークライン・詳細モーダル。
 7. ✅ **認証（Cognito/Amplify）**：`presentation/auth/`（AuthGate）でログイン必須化 + `config/amplify.ts` 初期化。dev/prod 環境分離（Vite mode）と S3 デプロイ（GitHub Actions）整備。
 8. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
-9. 🔄 **バックエンド連携**：`infrastructure/http/apiClient` を追加し DI を切替。コレクション取得（`GET /collection`）と相場取得（`GET /market`）は接続済み。コレクションの書き込み系 API は提供待ち。
+9. 🔄 **バックエンド連携**：`infrastructure/http/apiClient`（`apiGet`/`apiPost`）で DI を切替。コレクション取得（`GET /collection`）・**新規登録（`POST /collection`）**・カタログ取得（`GET /catalogs`）・相場取得（`GET /market`）は接続済み。残りの書き込み系（編集・削除・インポート）API は提供待ち。
 
-> 現在地：ステップ 1〜7 完了 + ステップ 9 一部（コレクション取得・相場取得が実 API 接続）。`npm run build` はクリーン。次はステップ 8（テスト基盤・ESLint境界ルール）と、書き込み系 API の提供後の連携。
+> 現在地：ステップ 1〜7 完了 + ステップ 9 一部（コレクション取得/新規登録・カタログ取得・相場取得が実 API 接続）。`npm run build` はクリーン。次はステップ 8（テスト基盤・ESLint境界ルール）と、残りの書き込み系 API の提供後の連携。
 
 ---
 

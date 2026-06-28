@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collectionUseCases } from '../../config/container';
 import { applyCollectionQuery } from '../../application/collection/applyCollectionQuery';
 import type { CollectionItemInput } from '../../application/collection/dto/CollectionItemInput';
+import type { NewCollectionInput } from '../../application/collection/dto/NewCollectionInput';
 import type { CollectionQuery } from '../../application/collection/dto/CollectionQuery';
 import { DEFAULT_COLLECTION_QUERY } from '../../application/collection/dto/CollectionQuery';
 import type { CollectionItem } from '../../domain/collection/CollectionItem';
@@ -41,6 +42,14 @@ export function useCollection() {
   const items = useMemo(() => applyCollectionQuery(all, query), [all, query]);
   const summary = useMemo(() => summarize(all), [all]);
 
+  const create = useCallback(
+    async (input: NewCollectionInput) => {
+      await collectionUseCases.create.execute(input);
+      await load();
+    },
+    [load],
+  );
+
   const save = useCallback(
     async (input: CollectionItemInput) => {
       await collectionUseCases.save.execute(input);
@@ -77,6 +86,7 @@ export function useCollection() {
     loading,
     error,
     reload: load,
+    create,
     save,
     remove,
     exportAll,
