@@ -263,7 +263,7 @@ export interface CollectionRepository {
 
 - **戻り値はすべて `Promise`**。今は同期的なlocalStorageでも、将来の非同期APIでもシグネチャが変わらないようにするため。
 - **`list()` はクエリを取らず全件返す**。検索/フィルタ/ソートは純関数 `applyCollectionQuery`、集計は `summarize` で **Presentation の派生状態**として算出する（毎キーストロークでの再読込を避ける）。将来サーバ側フィルタが必要になったら、その時点で `list(query)` に拡張する。
-- **`create()` は書誌マスタ参照型**。書誌（title/author/…/imageUrl）は `catalogId` で既存 Catalog を参照し、本文には所有インスタンス固有の情報（condition/qty/cost…）だけを渡す（`id`/`updatedAt` はサーバ採番、`imageUrl` はカタログ由来）。サーバは Catalog を合成した enriched な `CollectionItem` を 201 で返す。`catalogId` 取得のため `CatalogRepository.list()`（`GET /catalogs`）が必要。これに対し `save()`（編集）は全書誌を平坦に持つ既存の upsert で、入力 DTO の系統が異なる。
+- **`create()` は書誌マスタ参照型**。書誌（title/author/…/imageUrl）は `catalogId` で既存 Catalog を参照し、本文には所有インスタンス固有の情報（condition/qty/cost…）だけを渡す（`id`/`updatedAt` はサーバ採番、`imageUrl` はカタログ由来、`market`/`marketSource` はマーケットからサーバが導出）。サーバは Catalog を合成した enriched な `CollectionItem` を 201 で返す。`catalogId` 取得のため `CatalogRepository.list()`（`GET /catalogs`）が必要。これに対し `save()`（編集）は全書誌を平坦に持つ既存の upsert で、入力 DTO の系統が異なる。
 - ユースケースはこのインターフェースだけに依存する：
 
 ```ts
