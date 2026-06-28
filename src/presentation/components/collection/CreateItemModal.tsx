@@ -12,12 +12,14 @@ interface CreateItemModalProps {
   onCreate: (input: NewCollectionInput) => Promise<void>;
 }
 
-/** 所有インスタンス固有の入力（書誌は選択した Catalog 由来）。 */
+/**
+ * 所有インスタンス固有の入力（書誌は選択した Catalog 由来）。
+ * 相場（market / marketSource）はマーケットからサーバが導出するため入力しない。
+ */
 interface OwnerForm {
   condition: Condition;
   qty: number;
   cost: number;
-  market: number;
   purchaseDate: string;
   store: string;
   location: string;
@@ -28,7 +30,6 @@ const emptyOwnerForm = (): OwnerForm => ({
   condition: 'A',
   qty: 1,
   cost: 0,
-  market: 0,
   purchaseDate: '',
   store: '',
   location: '',
@@ -89,8 +90,6 @@ export function CreateItemModal({ onClose, onCreate }: CreateItemModalProps) {
         condition: form.condition,
         qty: Math.max(1, Number(form.qty) || 1),
         cost: Math.max(0, Number(form.cost) || 0),
-        market: Math.max(0, Number(form.market) || 0),
-        marketSource: 'manual',
         purchaseDate: form.purchaseDate,
         store: form.store.trim(),
         location: form.location.trim(),
@@ -189,15 +188,6 @@ export function CreateItemModal({ onClose, onCreate }: CreateItemModalProps) {
                   min={0}
                   value={form.cost}
                   onChange={(e) => set('cost', Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="field">現在相場（1点）</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.market}
-                  onChange={(e) => set('market', Number(e.target.value))}
                 />
               </div>
               <div>
