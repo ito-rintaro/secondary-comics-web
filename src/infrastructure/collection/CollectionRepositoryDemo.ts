@@ -1,5 +1,6 @@
 import type { CollectionItem } from '../../domain/collection/CollectionItem';
 import type { CollectionRepository } from '../../application/collection/ports/CollectionRepository';
+import { NotImplementedError } from '../../application/collection/errors';
 import { collectionSeed } from './seed/collectionSeed';
 
 const STORAGE_KEY = 'secondary-comics:collection:v1';
@@ -31,6 +32,16 @@ export class CollectionRepositoryDemo implements CollectionRepository {
 
   async getById(id: string): Promise<CollectionItem | null> {
     return this.read().find((x) => x.id === id) ?? null;
+  }
+
+  /**
+   * 新規追加はカタログ参照型（POST /collection）であり、書誌は実 API の Catalog から
+   * 合成される。Demo にはカタログ基盤が無いため未対応とし、API モードでのみ実装する。
+   */
+  async create(): Promise<CollectionItem> {
+    throw new NotImplementedError(
+      '作品の登録はデモモードでは利用できません。API モード（VITE_USE_API=true）でお試しください。',
+    );
   }
 
   async save(item: CollectionItem): Promise<void> {

@@ -36,18 +36,48 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
 
   if (!res.ok) {
-    // バックエンドは { "message": "..." } 形式でエラーを返す（OpenAPI の Error スキーマ）
-    let message = `通信に失敗しました（${res.status}）`;
-    try {
-      const body: unknown = await res.json();
-      if (body && typeof body === 'object' && 'message' in body) {
-        message = String((body as { message: unknown }).message);
-      }
-    } catch {
-      /* JSON でない／空ボディは既定メッセージのまま */
-    }
-    throw new ApiError(res.status, message);
+    throw await toApiError(res);
   }
 
   return res.json() as Promise<T>;
+}
+
+/**
+ * 認証付き POST。body を JSON 送信し、レスポンス JSON を T として返す。
+ * 2xx（POST /collection は 201）以外は ApiError を投げる。
+ */
+export async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const headers = await authHeader();
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // ネットワーク到達不可・CORS 失敗など
+    throw new ApiError(0, 'サーバーに接続できませんでした。通信環境を確認してください。');
+  }
+
+  if (!res.ok) {
+    throw await toApiError(res);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+/** 非 2xx レスポンスを ApiError に整形する。{ "message": "..." }（OpenAPI の Error）を尊重する。 */
+async function toApiError(res: Response): Promise<ApiError> {
+  let message = `通信に失敗しました（${res.status}）`;
+  try {
+    const body: unknown = await res.json();
+    if (body && typeof body === 'object' && 'message' in body) {
+      message = String((body as { message: unknown }).message);
+    }
+  } catch {
+    /* JSON でない／空ボディは既定メッセージのまま */
+  }
+  return new ApiError(res.status, message);
 }

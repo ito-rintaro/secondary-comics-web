@@ -1,12 +1,13 @@
 import type { CollectionItem } from '../../domain/collection/CollectionItem';
 import type { CollectionRepository } from '../../application/collection/ports/CollectionRepository';
+import type { NewCollectionInput } from '../../application/collection/dto/NewCollectionInput';
 import { NotImplementedError } from '../../application/collection/errors';
-import { apiGet } from '../http/apiClient';
+import { apiGet, apiPost } from '../http/apiClient';
 
 /**
  * 本番実装：バックエンド API（dev）に接続する CollectionRepository。
- * 現状バックエンドは GET /collection のみ提供のため、取得系だけを実装し、
- * 書き込み系（save / delete / replaceAll）はエンドポイント提供までは例外を投げる。
+ * 取得系（GET /collection）と新規追加（POST /collection）を実装する。
+ * 編集・削除（update / delete / replaceAll）は今回スコープ外のため例外を投げる。
  *
  * userId はリクエストに含めない。Cognito の ID トークン（apiClient が付与）の
  * sub からサーバー側で本人のデータに絞り込まれる。
@@ -23,8 +24,13 @@ export class CollectionRepositoryImpl implements CollectionRepository {
     return items.find((x) => x.id === id) ?? null;
   }
 
+  /** POST /collection … catalogId と所有情報を送り、合成済みの CollectionItem を受け取る。 */
+  async create(input: NewCollectionInput): Promise<CollectionItem> {
+    return apiPost<CollectionItem>('/collection', input);
+  }
+
   async save(): Promise<void> {
-    throw new NotImplementedError('作品の登録・編集 API はまだ提供されていません。');
+    throw new NotImplementedError('作品の編集 API はまだ提供されていません。');
   }
 
   async delete(): Promise<void> {
