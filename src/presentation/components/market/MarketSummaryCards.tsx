@@ -1,20 +1,20 @@
-import type { MarketSummary } from '../../../domain/market/MarketSummary';
+import type { MarketOverview } from '../../../domain/market/MarketOverview';
 import { formatPercent, formatYen, trendClass } from '../../format';
 
-/** マーケットのサマリーカード4種。 */
-export function MarketSummaryCards({ summary }: { summary: MarketSummary }) {
+/** マーケット概況のサマリーカード4種。 */
+export function MarketSummaryCards({ summary }: { summary: MarketOverview }) {
   return (
     <div className="cards">
       <div className="card">
-        <div className="k">出品数</div>
+        <div className="k">相場のある作品数</div>
         <div className="v">{summary.count}</div>
       </div>
       <div className="card">
-        <div className="k">最高額の出品</div>
+        <div className="k">最高相場</div>
         <div className="v">{formatYen(summary.topPrice)}</div>
       </div>
       <div className="card">
-        <div className="k">平均出品価格</div>
+        <div className="k">平均相場</div>
         <div className="v">{formatYen(summary.avgPrice)}</div>
       </div>
       <div className="card">

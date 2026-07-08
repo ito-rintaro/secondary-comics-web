@@ -1,20 +1,24 @@
-import type { MarketRecord } from './MarketRecord';
+import type { ConditionFlags } from '../shared/ConditionFlags';
 
-/** マーケット全体のサマリー（デモの market summary カード相当）。 */
+/**
+ * catalog 単位の相場サマリ（GET /market/summary が返す読み取りモデル）。
+ * 相場一覧カード・価格チャートが消費する。price / change / history は
+ * 成約ログ（MarketSale）を集計して導出した値（summaryFromSales）。
+ *
+ * 成約が 1 件以上ある catalog のみ存在する（0 件の catalog は含まれない）。
+ * 出品者（seller）・個別 condition・listing 単位の id は catalog 集計のため持たない。
+ */
 export interface MarketSummary {
-  count: number; // 出品数
-  topPrice: number; // 最高額の出品
-  avgPrice: number; // 平均出品価格
-  avgChange: number; // 値上がり率（平均・直近12ヶ月）
+  catalogId: string; // 集計単位＝参照する Catalog の id（一覧の識別子）
+  title: string; // 書誌（Catalog 由来）
+  author: string;
+  publisher: string;
+  volume: string;
+  flags: ConditionFlags;
+  imageUrl: string; // S3 オブジェクトキー（空は画像なし）
+  price: number; // 現在価格（= history 末尾）
+  change: number; // 期間変化率（(末-初)/初）
+  history: number[]; // 月次に畳んだ擬似価格系列。要素数12・末尾=当月
+  sampleCount: number; // 集計に使った成約点数（相場の信頼度の目安）
+  lastSoldAt: string; // 直近成約日 "YYYY-MM-DD"
 }
-
-export const summarizeMarket = (records: MarketRecord[]): MarketSummary => {
-  if (records.length === 0) {
-    return { count: 0, topPrice: 0, avgPrice: 0, avgChange: 0 };
-  }
-  const count = records.length;
-  const topPrice = Math.max(...records.map((m) => m.price));
-  const avgPrice = records.reduce((s, m) => s + m.price, 0) / count;
-  const avgChange = records.reduce((s, m) => s + m.change, 0) / count;
-  return { count, topPrice, avgPrice, avgChange };
-};

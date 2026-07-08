@@ -1,22 +1,20 @@
 import { useState } from 'react';
-import type { MarketRecord } from '../../../domain/market/MarketRecord';
+import type { MarketSummary } from '../../../domain/market/MarketSummary';
 import { maxPrice, minPrice } from '../../../domain/market/PriceHistory';
 import { formatPercent, formatYen, trendClass } from '../../format';
 import { resolveImageSrc } from '../../imageSrc';
 import { Modal } from '../common/Modal';
 import { Sparkline } from './Sparkline';
-import { avatarHue } from './avatar';
 
 interface MarketDetailModalProps {
-  record: MarketRecord;
+  record: MarketSummary;
   onClose: () => void;
 }
 
-/** マーケット詳細モーダル（デモの openMarketDetail 相当）。 */
+/** 相場サマリの詳細モーダル（デモの openMarketDetail 相当）。 */
 export function MarketDetailModal({ record, onClose }: MarketDetailModalProps) {
   const [imgBroken, setImgBroken] = useState(false);
   const src = resolveImageSrc(record.imageUrl);
-  const hue = avatarHue(record.seller);
   const lo = minPrice(record.history);
   const hi = maxPrice(record.history);
   const tCls = trendClass(record.change);
@@ -44,7 +42,6 @@ export function MarketDetailModal({ record, onClose }: MarketDetailModalProps) {
               {record.flags.firstEd && <span className="chip hot">初版</span>}
               {record.flags.obi && <span className="chip">帯付き</span>}
               {record.flags.special && <span className="chip">サイン入り</span>}
-              <span className="chip">コンディション {record.condition}</span>
             </div>
             <div className="price-now" style={{ marginTop: 12 }}>
               {formatYen(record.price)}{' '}
@@ -52,11 +49,11 @@ export function MarketDetailModal({ record, onClose }: MarketDetailModalProps) {
                 {formatPercent(record.change)}
               </span>
             </div>
-            <div className="seller" style={{ marginTop: 6 }}>
-              <span className="ava" style={{ background: `hsl(${hue} 50% 30%)` }}>
-                {record.seller[0]}
-              </span>
-              出品者：{record.seller}
+            <div
+              className="meta"
+              style={{ color: 'var(--muted)', fontSize: 13, marginTop: 6 }}
+            >
+              直近成約 {record.lastSoldAt} ・ 成約 {record.sampleCount} 件から算出
             </div>
           </div>
         </div>

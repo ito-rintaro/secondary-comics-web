@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { MarketRecord } from '../../domain/market/MarketRecord';
+import type { MarketSummary } from '../../domain/market/MarketSummary';
 import { useMarket } from '../hooks/useMarket';
 import { MarketSummaryCards } from '../components/market/MarketSummaryCards';
 import { MarketToolbar } from '../components/market/MarketToolbar';
@@ -9,10 +9,10 @@ import { MarketDetailModal } from '../components/market/MarketDetailModal';
 export function MarketPage() {
   const { query, setQuery, records, summary, total, loading, error, reload } =
     useMarket();
-  const [selected, setSelected] = useState<MarketRecord | null>(null);
+  const [selected, setSelected] = useState<MarketSummary | null>(null);
 
-  const openDetail = (id: string) =>
-    setSelected(records.find((m) => m.id === id) ?? null);
+  const openDetail = (catalogId: string) =>
+    setSelected(records.find((m) => m.catalogId === catalogId) ?? null);
 
   return (
     <div className="wrap">
@@ -35,7 +35,11 @@ export function MarketPage() {
       ) : (
         <div className="grid">
           {records.map((record) => (
-            <MarketCard key={record.id} record={record} onOpen={openDetail} />
+            <MarketCard
+              key={record.catalogId}
+              record={record}
+              onOpen={openDetail}
+            />
           ))}
         </div>
       )}

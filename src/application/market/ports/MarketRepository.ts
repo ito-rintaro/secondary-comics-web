@@ -1,11 +1,12 @@
-import type { MarketRecord } from '../../../domain/market/MarketRecord';
+import type { MarketSummary } from '../../../domain/market/MarketSummary';
 
 /**
  * マーケット相場取得の出力ポート（境界）。
- * 今は MarketRepositoryDemo（擬似生成）。フェーズ2で MarketRepositoryImpl
- * （04_market_data.md の決定ソース：API or バッチ集計）へ差し替える。
+ * 相場一覧カード・価格チャートの供給源は catalog 単位の相場サマリ
+ * （GET /market/summary）。成約ログ（GET /market）は集計の元データで、
+ * 現状フロントの一覧では使わないためポートには載せない。
  */
 export interface MarketRepository {
-  /** 全件取得（検索/ソートは application の applyMarketQuery で適用）。 */
-  list(): Promise<MarketRecord[]>;
+  /** catalog 単位の相場サマリを全件取得（GET /market/summary 相当）。 */
+  listSummaries(): Promise<MarketSummary[]>;
 }
