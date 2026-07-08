@@ -1,33 +1,25 @@
 import { useState } from 'react';
-import type { MarketRecord } from '../../../domain/market/MarketRecord';
+import type { MarketSummary } from '../../../domain/market/MarketSummary';
 import { formatPercent, formatYen, trendClass } from '../../format';
 import { resolveImageSrc } from '../../imageSrc';
 import { Sparkline } from './Sparkline';
-import { avatarHue } from './avatar';
 
 interface MarketCardProps {
-  record: MarketRecord;
-  onOpen: (id: string) => void;
+  record: MarketSummary;
+  onOpen: (catalogId: string) => void;
 }
 
-/** マーケットの出品/相場カード（デモの market grid item 相当）。 */
+/** catalog 単位の相場カード（デモの market grid item 相当）。 */
 export function MarketCard({ record, onOpen }: MarketCardProps) {
   const [imgBroken, setImgBroken] = useState(false);
   const src = resolveImageSrc(record.imageUrl);
-  const hue = avatarHue(record.seller);
-  const meta = [
-    record.author,
-    record.volume,
-    `コンディション${record.condition}`,
-  ]
-    .filter(Boolean)
-    .join(' ・ ');
+  const meta = [record.author, record.volume].filter(Boolean).join(' ・ ');
 
   return (
     <div
       className="item"
       style={{ cursor: 'pointer' }}
-      onClick={() => onOpen(record.id)}
+      onClick={() => onOpen(record.catalogId)}
     >
       <div className="thumb">
         {src && !imgBroken ? (
@@ -52,7 +44,7 @@ export function MarketCard({ record, onOpen }: MarketCardProps) {
         <Sparkline data={record.history} width={240} height={54} className="spark" />
         <div className="nums">
           <div>
-            <div className="meta">出品価格</div>
+            <div className="meta">現在の相場</div>
             <div className="market">{formatYen(record.price)}</div>
           </div>
           <div className={`trend ${trendClass(record.change)}`}>
@@ -61,11 +53,8 @@ export function MarketCard({ record, onOpen }: MarketCardProps) {
             <span className="meta">直近12ヶ月</span>
           </div>
         </div>
-        <div className="seller">
-          <span className="ava" style={{ background: `hsl(${hue} 50% 30%)` }}>
-            {record.seller[0]}
-          </span>
-          {record.seller}
+        <div className="meta">
+          直近成約 {record.lastSoldAt} ・ 成約 {record.sampleCount} 件
         </div>
       </div>
     </div>

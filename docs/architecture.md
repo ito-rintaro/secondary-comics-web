@@ -3,7 +3,7 @@
 本書は、デモ（[../docs_for_input/index.html](../docs_for_input/index.html)）を **React.js + TypeScript** で本番実装し直すにあたっての技術設計をまとめる。
 要件は [../docs_for_input/](../docs_for_input/) を参照。MVP（フェーズ1）の範囲は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従う。
 
-> **前提**：バックエンドは段階的に接続中。コレクション取得（`GET /collection`）・**コレクション新規登録（`POST /collection`）**・カタログ取得（`GET /catalogs`）・マーケット相場取得（`GET /market`）は実 API に接続済み（`VITE_USE_API=true`）。
+> **前提**：バックエンドは段階的に接続中。コレクション取得（`GET /collection`）・**コレクション新規登録（`POST /collection`）**・カタログ取得（`GET /catalogs`）・マーケット相場サマリ取得（`GET /market/summary`）は実 API に接続済み（`VITE_USE_API=true`）。
 > 残りの書き込み系（編集・削除・インポート）はまだ**ダミーデータ**（localStorage）で動かす。
 > 新規登録は書誌マスタ（Catalog）を `catalogId` で参照する設計のため、カタログ基盤を持つ**実 API モード専用**（Demo は `NotImplementedError`）。
 > 「画面・ロジックを変えずにバックエンドへ差し替える」ことを最初から織り込んだ構造にする。それを担保するのがクリーンアーキテクチャ。
@@ -81,10 +81,12 @@ src/
 │  ├─ catalog/                     # ✅実装済み（書誌マスタ）
 │  │  └─ Catalog.ts                # エンティティ（CollectionItem が catalogId で参照する hub）
 │  └─ market/                      # ✅実装済み
-│     ├─ MarketRecord.ts           # 出品/相場（エンティティ）
+│     ├─ MarketSale.ts             # 成約ログ1件（1レコード=1価格。GET /market）
+│     ├─ MarketSummary.ts          # catalog単位の相場サマリ（GET /market/summary。カード/チャートが消費）
+│     ├─ summaryFromSales.ts       # 成約ログ→月次12点への畳み込み（前方フィル/バックフィル）
 │     ├─ PriceHistory.ts           # 価格推移の集計（現在/最安/最高）
 │     ├─ Trend.ts                  # 変化率（changeRate）
-│     └─ MarketSummary.ts          # マーケット集計（summarizeMarket）
+│     └─ MarketOverview.ts         # 概況カード集計（summarizeMarket）
 │  # 注: 金額の表示整形（¥書式）はビジネスではなく表示の関心事 → presentation/format.ts に置く
 │
 ├─ application/                    # ── ユースケース層
@@ -112,12 +114,12 @@ src/
 │  │     └─ ListCatalogs.ts            # 全件取得（新規登録モーダルの catalogId 選択用）
 │  └─ market/                      # ✅実装済み
 │     ├─ ports/
-│     │  └─ MarketRepository.ts        # ★インターフェース（list のみ）
+│     │  └─ MarketRepository.ts        # ★インターフェース（listSummaries のみ）
 │     ├─ dto/
-│     │  └─ MarketQuery.ts             # 検索/ソート条件 + 既定値
-│     ├─ applyMarketQuery.ts           # 検索・ソートの純関数
+│     │  └─ MarketQuery.ts             # 検索/ソート条件 + 既定値（priceDesc/trendDesc/recent）
+│     ├─ applyMarketQuery.ts           # 検索・ソートの純関数（seller検索は廃止・recentはlastSoldAt）
 │     └─ usecases/
-│        └─ ListMarketRecords.ts       # 全件取得（詳細は読込済みリストから選択）
+│        └─ ListMarketSummaries.ts     # 相場サマリ全件取得（詳細は読込済みリストから選択）
 │
 ├─ infrastructure/                 # ── 外側：実装の差し替え点
 │  ├─ collection/                  # ✅実装済み
@@ -130,10 +132,10 @@ src/
 │  ├─ image/                       # ✅実装済み
 │  │  └─ CanvasImageResizer.ts         # 画像縮小（600px/JPEG0.8）
 │  ├─ market/                      # ✅実装済み
-│  │  ├─ MarketRepositoryDemo.ts       # 擬似生成（genHistory相当）。構築時に一度生成しキャッシュ
-│  │  ├─ MarketRepositoryImpl.ts       # ✅API実装。GET /market（全件取得・グローバル）
+│  │  ├─ MarketRepositoryDemo.ts       # 成約ログを擬似生成→summaryFromSalesで畳む。構築時に一度生成しキャッシュ
+│  │  ├─ MarketRepositoryImpl.ts       # ✅API実装。GET /market/summary（全件取得・グローバル）
 │  │  ├─ prng.ts                       # シード固定の擬似乱数（mulberry32）でチャート安定化
-│  │  └─ seed/marketSeed.ts            # デモのMARKET相当（12件）
+│  │  └─ seed/marketSeed.ts            # デモのMARKET相当（12件・catalogId付き）
 │  └─ http/                        # ✅実装済み
 │     └─ apiClient.ts                  # 認証付きfetch（apiGet/apiPost・CognitoのIDトークン付与）+ ApiError
 │
@@ -153,7 +155,7 @@ src/
 │  ├─ components/
 │  │  ├─ collection/                # ✅SummaryCards, Toolbar, ItemCard, ItemFormModal(編集), CreateItemModal(新規登録)
 │  │  ├─ market/                    # ✅MarketSummaryCards, MarketToolbar, MarketCard,
-│  │  │                             #    MarketDetailModal, Sparkline(SVG), avatar
+│  │  │                             #    MarketDetailModal, Sparkline(SVG)
 │  │  └─ common/                    # ✅Modal（将来 Badge, Button …）
 │  └─ App.tsx                       # ✅タブ切替（switchView相当）
 │  # DIは config/container.ts を直接 import（Provider化は規模拡大時に検討）
@@ -232,16 +234,21 @@ export const summarize = (items: CollectionItem[]): CollectionSummary => { /* �
 > **検索・フィルタ・ソート**（デモ `render()` 内）は純関数 `applyCollectionQuery(items, query)`（application層）に移し、`CollectionQuery`（検索語・フィルタ種別・ソート種別）を入力に取る。Presentation では `useMemo` で派生状態として算出する。
 
 ### Market（相場）
-デモの `genHistory(base, trend, vol)` による擬似生成は **Infrastructure（MarketRepositoryDemo）の責務**。Domain は「価格推移」「変化率」「最安/最高」という*概念*だけを持ち、生成方法は知らない。
+相場は **「成約ログ（1レコード=1価格）」と「catalog単位の相場サマリ（集計・導出）」の2層**。相場一覧カード・価格チャートの供給源は **`GET /market/summary`（MarketSummary[]）**。成約ログ（`GET /market`＝MarketSale[]）はサマリ導出の元データで、現状フロントの一覧では使わない。
+
+成約ログを月次12点に畳む集計（`summaryFromSales`：月次平均・成約が無い月は前方フィル・先頭はバックフィル）は **Domain の純関数**として持ち、サーバーと同じ導出をデモでも再現する（`MarketRepositoryDemo` は成約を擬似生成→この純関数で畳む）。`price`/`change`/`history` は名前・意味とも据え置きのため、既存のカード価格表示・折れ線チャートはデータ源と型を差し替えるだけで流用できる。
 
 ```ts
-// domain/market/MarketRecord.ts
-export interface MarketRecord {
-  id: string; title: string; author: string; publisher: string; volume: string;
-  seller: string; condition: Condition; flags: ConditionFlags;
-  price: number; history: number[]; change: number;  // 12ヶ月・変化率
+// domain/market/MarketSummary.ts（カード/チャートが消費）
+export interface MarketSummary {
+  catalogId: string; title: string; author: string; publisher: string; volume: string;
+  flags: ConditionFlags; imageUrl: string;
+  price: number; change: number; history: number[];  // 12ヶ月・変化率（末尾=当月）
+  sampleCount: number; lastSoldAt: string;            // 成約点数・直近成約日
 }
 ```
+
+> **サマリに無いもの**：出品者（`seller`）・個別 `condition`・listing単位の `id` は catalog 集計のため持たない。旧 `listedAt` も廃止し、新着ソートは `lastSoldAt`（`recent`）で表現する。`GET /market/summary` は**成約が1件以上ある catalog のみ**返る点にも注意（全catalogは返らない）。
 
 ---
 
@@ -310,13 +317,13 @@ export const catalogUseCases = {
 
 const marketRepository: MarketRepository =
   import.meta.env.VITE_USE_API === 'true'
-    ? new MarketRepositoryImpl()   // 実API（GET /market・グローバル）
-    : new MarketRepositoryDemo();  // 擬似生成（genHistory）
+    ? new MarketRepositoryImpl()   // 実API（GET /market/summary・グローバル）
+    : new MarketRepositoryDemo();  // 成約を擬似生成→summaryFromSalesで畳む
 ```
 
 → **バックエンド接続で触るのは、この `container.ts` の分岐と各 `RepositoryImpl`（＋ `infrastructure/http/apiClient`）だけ**。Presentation / Application / Domain は無改修。これが [05_architecture.md](../docs_for_input/05_architecture.md) の「破壊的にしない移行ステップ」をコードで保証する。
 
-> **現状の連携範囲**：バックエンドは `GET /collection`・`POST /collection`・`GET /catalogs`・`GET /market` を提供。`CollectionRepositoryImpl` は `list()` と `create()`（`apiPost`）を実装し、`getById()` は一覧から導出する。残りの書き込み系（`save`(編集)/`delete`/`replaceAll`）は対応 API 提供までは `NotImplementedError` を投げ、メッセージを UI に表示する。新規登録は `CatalogRepositoryImpl.list()`（`GET /catalogs`）でカタログを取得し、`CreateItemModal` でカタログを検索・選択して `catalogId` を決める。カタログ基盤は実 API 側にしか無いため、Demo の `create()`／`CatalogRepositoryDemo.list()` は `NotImplementedError`（新規登録は実 API モード専用）。`userId` はリクエストに含めず、`apiClient` が付与する Cognito の **ID トークン**の `sub` でサーバー側が本人データに絞り込む。マーケットとカタログは本人データではなく**全ユーザー共通（グローバル）**のため `sub` での絞り込みはしない。
+> **現状の連携範囲**：バックエンドは `GET /collection`・`POST /collection`・`GET /catalogs`・`GET /market/summary`（相場サマリ・カード/チャート用）を提供。成約の書き込み系（`POST/PUT/DELETE /market`）は OpenAPI 上に定義済みだがフロント編集UIは未実装。`CollectionRepositoryImpl` は `list()` と `create()`（`apiPost`）を実装し、`getById()` は一覧から導出する。残りの書き込み系（`save`(編集)/`delete`/`replaceAll`）は対応 API 提供までは `NotImplementedError` を投げ、メッセージを UI に表示する。新規登録は `CatalogRepositoryImpl.list()`（`GET /catalogs`）でカタログを取得し、`CreateItemModal` でカタログを検索・選択して `catalogId` を決める。カタログ基盤は実 API 側にしか無いため、Demo の `create()`／`CatalogRepositoryDemo.list()` は `NotImplementedError`（新規登録は実 API モード専用）。`userId` はリクエストに含めず、`apiClient` が付与する Cognito の **ID トークン**の `sub` でサーバー側が本人データに絞り込む。マーケットとカタログは本人データではなく**全ユーザー共通（グローバル）**のため `sub` での絞り込みはしない。
 
 ### 実装クラスの命名規則
 同じ port（interface）に対する実装は、**末尾サフィックスで実/デモを区別**する。技術名（localStorage/API）は名前に入れない。
@@ -338,11 +345,11 @@ const marketRepository: MarketRepository =
 | 対象 | ダミー実装 | デモ由来 | 将来 |
 |---|---|---|---|
 | コレクション | `CollectionRepositoryDemo`（初回は `collectionSeed` を投入） | `STORAGE_KEY`/`SEED`/`load`/`save` | `CollectionRepositoryImpl` |
-| 相場 | `MarketRepositoryDemo`（`genHistory` で12点生成） | `MARKET`/`genHistory` | `MarketRepositoryImpl`（✅`GET /market`。集計ロジックは [04_market_data.md](../docs_for_input/04_market_data.md) 決定後にサーバー側で） |
+| 相場 | `MarketRepositoryDemo`（成約を擬似生成→`summaryFromSales`で12点に畳む） | `MARKET`/`genHistory` | `MarketRepositoryImpl`（✅`GET /market/summary`。集計はサーバー側で成約ログから導出） |
 | 画像 | `CanvasImageResizer`（600px/JPEG0.8 → dataURL） | `handleImage` | ✅取得は実装済み（APIが返すS3キーを `imageSrc.ts` でCloudFront URLに解決）。アップロードは今後 |
 
 - 相場は [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) のとおり **MVPは `marketSource='manual'`（手入力）** が基本。`MarketRepositoryDemo` のチャートは「マーケット画面のUI確認用」と割り切り、`marketSource` フィールドで出所を区別できるようにしておく。
-- **乱数の扱い（実装済み）**：デモの `genHistory` は `Math.random()` を使っていたが、本実装では**シード固定の擬似乱数（mulberry32, `infrastructure/market/prng.ts`）**に置き換えた。これにより**リロードしてもチャートが安定**し、テストも再現可能。生成は `MarketRepositoryDemo` の構築時に一度だけ行いキャッシュする（`list` 呼び出し間で一貫）。
+- **乱数の扱い（実装済み）**：デモの `genHistory` は `Math.random()` を使っていたが、本実装では**シード固定の擬似乱数（mulberry32, `infrastructure/market/prng.ts`）**に置き換えた。これにより**リロードしてもチャートが安定**し、テストも再現可能。生成は `MarketRepositoryDemo` の構築時に一度だけ行いキャッシュする（`listSummaries` 呼び出し間で一貫）。成約は固定の当月（`ANCHOR_MONTH`）を末尾とした直近12ヶ月の窓に撒き、`summaryFromSales` で畳む。
 
 ---
 
@@ -413,7 +420,7 @@ UI（React）は `useCollection` / `useCatalogs` フック経由でユースケ�
 6. ✅ **Market**：Domain（+共有カーネル）/port/`MarketRepositoryDemo`（シード固定PRNG）+ MarketPage・スパークライン・詳細モーダル。
 7. ✅ **認証（Cognito/Amplify）**：`presentation/auth/`（AuthGate）でログイン必須化 + `config/amplify.ts` 初期化。dev/prod 環境分離（Vite mode）と S3 デプロイ（GitHub Actions）整備。
 8. ⬜ **品質基盤**：Vitest（Domain/Application 単体テスト）+ ESLint 境界ルール導入。
-9. 🔄 **バックエンド連携**：`infrastructure/http/apiClient`（`apiGet`/`apiPost`）で DI を切替。コレクション取得（`GET /collection`）・**新規登録（`POST /collection`）**・カタログ取得（`GET /catalogs`）・相場取得（`GET /market`）は接続済み。残りの書き込み系（編集・削除・インポート）API は提供待ち。
+9. 🔄 **バックエンド連携**：`infrastructure/http/apiClient`（`apiGet`/`apiPost`）で DI を切替。コレクション取得（`GET /collection`）・**新規登録（`POST /collection`）**・カタログ取得（`GET /catalogs`）・相場サマリ取得（`GET /market/summary`）は接続済み。残りの書き込み系（編集・削除・インポート・成約登録）API は提供・UI実装待ち。
 
 > 現在地：ステップ 1〜7 完了 + ステップ 9 一部（コレクション取得/新規登録・カタログ取得・相場取得が実 API 接続）。`npm run build` はクリーン。次はステップ 8（テスト基盤・ESLint境界ルール）と、残りの書き込み系 API の提供後の連携。
 
@@ -424,7 +431,7 @@ UI（React）は `useCollection` / `useCatalogs` フック経由でユースケ�
 [02_scope_mvp.md](../docs_for_input/02_scope_mvp.md) に従い、以下は層だけ用意して実装しない：
 - ~~認証（⑤⑥画面）~~ → ✅実装済み：Cognito/Amplify の `<Authenticator>` でアプリ全体をログイン必須化（`presentation/auth/AuthGate`）。トークンの保存・自動更新は Amplify が担当。API 呼び出し時のトークン付与（`apiClient` が ID トークンを付与）・`userId` 紐付け（サーバーが `sub` で判定）はコレクション取得で実装済み。
 - 価格アラート・ウォッチリスト（FR-B5/B6）：デモ同様ダミーボタン。
-- 相場の自動収集ロジック（[04_market_data.md] 決定待ち）：取得は `GET /market` に接続済みだが、相場値そのものの集計方法（バッチ等）はサーバー側で決定後に実装。
+- 相場の自動収集ロジック（[04_market_data.md] 決定待ち）：相場サマリ取得は `GET /market/summary` に接続済みだが、成約ログ（`GET /market`）をサマリに畳む集計方法（バッチ等）はサーバー側で決定後に実装。
 
 ---
 

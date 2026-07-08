@@ -15,7 +15,7 @@ export function MarketToolbar({ query, onChange }: MarketToolbarProps) {
       <div className="search">
         <input
           type="text"
-          placeholder="🔍 出品を検索（タイトル・著者・出品者）"
+          placeholder="🔍 相場を検索（タイトル・著者）"
           value={query.search}
           onChange={(e) => onChange({ ...query, search: e.target.value })}
         />
@@ -28,7 +28,7 @@ export function MarketToolbar({ query, onChange }: MarketToolbarProps) {
       >
         <option value="priceDesc">価格が高い順</option>
         <option value="trendDesc">値上がり率が高い順</option>
-        <option value="newest">新着順</option>
+        <option value="recent">直近成約順</option>
       </select>
     </div>
   );

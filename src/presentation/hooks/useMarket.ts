@@ -3,15 +3,15 @@ import { marketUseCases } from '../../config/container';
 import { applyMarketQuery } from '../../application/market/applyMarketQuery';
 import type { MarketQuery } from '../../application/market/dto/MarketQuery';
 import { DEFAULT_MARKET_QUERY } from '../../application/market/dto/MarketQuery';
-import type { MarketRecord } from '../../domain/market/MarketRecord';
-import { summarizeMarket } from '../../domain/market/MarketSummary';
+import type { MarketSummary } from '../../domain/market/MarketSummary';
+import { summarizeMarket } from '../../domain/market/MarketOverview';
 
 /**
  * マーケット画面の状態とユースケース呼び出しをまとめる薄い React 適合層。
- * 検索/ソートと集計は all から派生（純関数）で算出する。
+ * 検索/ソートと概況集計は all（相場サマリ）から派生（純関数）で算出する。
  */
 export function useMarket() {
-  const [all, setAll] = useState<MarketRecord[]>([]);
+  const [all, setAll] = useState<MarketSummary[]>([]);
   const [query, setQuery] = useState<MarketQuery>(DEFAULT_MARKET_QUERY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

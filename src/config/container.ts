@@ -8,7 +8,7 @@ import { SaveCollectionItem } from '../application/collection/usecases/SaveColle
 import type { CatalogRepository } from '../application/catalog/ports/CatalogRepository';
 import { ListCatalogs } from '../application/catalog/usecases/ListCatalogs';
 import type { MarketRepository } from '../application/market/ports/MarketRepository';
-import { ListMarketRecords } from '../application/market/usecases/ListMarketRecords';
+import { ListMarketSummaries } from '../application/market/usecases/ListMarketSummaries';
 import { CollectionRepositoryDemo } from '../infrastructure/collection/CollectionRepositoryDemo';
 import { CollectionRepositoryImpl } from '../infrastructure/collection/CollectionRepositoryImpl';
 import { CatalogRepositoryDemo } from '../infrastructure/catalog/CatalogRepositoryDemo';
@@ -51,5 +51,5 @@ const marketRepository: MarketRepository =
     : new MarketRepositoryDemo();
 
 export const marketUseCases = {
-  list: new ListMarketRecords(marketRepository),
+  list: new ListMarketSummaries(marketRepository),
 };
